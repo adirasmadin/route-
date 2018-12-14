@@ -41,7 +41,7 @@ public class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<Str
     @Override
     protected void onPostExecute(List<List<HashMap<String,String>>> result) {
         ArrayList points = null;
-        PolylineOptions lineOptions = null;
+        PolylineOptions lineOptions = new PolylineOptions();
         MarkerOptions markerOptions = new MarkerOptions();
 
         for (int i = 0; i < result.size(); i++) {

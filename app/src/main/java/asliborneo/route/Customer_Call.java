@@ -27,7 +27,7 @@ import retrofit2.Response;
 
 import static asliborneo.route.Driver_Home.mlastlocation;
 
-public class CustomerCall extends AppCompatActivity {
+public class Customer_Call extends AppCompatActivity {
     TextView txt_time, txt_distance, txt_Address;
     Button cancel_btn,accept_btn;
     MediaPlayer mediaPlayer;
@@ -57,7 +57,7 @@ public class CustomerCall extends AppCompatActivity {
         accept_btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent=new Intent(CustomerCall.this,DriverTracking.class);
+                Intent intent=new Intent(Customer_Call.this,DriverTracking.class);
                 intent.putExtra("lat",lat);
                 intent.putExtra("lng",lng);
                 intent.putExtra("customer",Customer_id);
@@ -86,7 +86,7 @@ public class CustomerCall extends AppCompatActivity {
             @Override
             public void onResponse(Call<fcm_response> call, Response<fcm_response> response) {
                 if(response.body().success==1){
-                    Toast.makeText(CustomerCall.this,"Canceled",Toast.LENGTH_LONG).show();
+                    Toast.makeText(Customer_Call.this,"Canceled",Toast.LENGTH_LONG).show();
                     finish();
                 }
             }
@@ -100,7 +100,7 @@ public class CustomerCall extends AppCompatActivity {
 
     private void getDirection(double lat,double lng) {
         IGoogleAPI service=RetrofitClient.get_direction_client().create(IGoogleAPI.class);
-        Call<Directions> call=service.getPath("driving","less_driving" ,mlastlocation.getLatitude()+","+mlastlocation.getLongitude(),lat+","+lng,"AIzaSyCKslRY-6A406ZWayqKbNDO_t5FLXRAHns");
+        Call<Directions> call=service.getPath("driving","less_driving" ,mlastlocation.getLatitude()+","+mlastlocation.getLongitude(),lat+","+lng,"AIzaSyBtssbTB-BQGwYZaCNgS9GScZLW13TQK-U");
         call.enqueue(new Callback<Directions>() {
             @Override
             public void onResponse(Call<Directions> call, Response<Directions> response) {
@@ -112,7 +112,7 @@ public class CustomerCall extends AppCompatActivity {
                             txt_time.setText(response.body().routes.get(0).legs.get(0).duration.text);
                         }
                 }else{
-                    Toast.makeText(CustomerCall.this,"Error in fetching location",Toast.LENGTH_LONG).show();
+                    Toast.makeText(Customer_Call.this,"Error in fetching location",Toast.LENGTH_LONG).show();
                 }
             }
 

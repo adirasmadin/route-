@@ -322,7 +322,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         String str_dest = "destination=" + rider_lat + "," + rider_lng;
 
         // Sensor enabled
-        String api_key="key=AIzaSyDrsg258Tdy93TEi8vppSZvWXztj32P_wA";
+        String api_key="key=AIzaSyD_kyU9tY7U2piM5xGvk5x5YMYWWvp2oCo";
         String transit_routing_preference="transit_routing_preference=less_driving";
         String mode = "mode=driving";
 

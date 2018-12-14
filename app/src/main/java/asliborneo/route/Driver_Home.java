@@ -104,7 +104,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     private DatabaseReference onlineref,currentuserref;
     FirebaseStorage storage;
     StorageReference storageReference;
-    double lat,lng;
+
     Marker searchUsers;
 
     @Override
@@ -202,6 +202,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             }
         });
         update_firebase_token();
+        setuplocation();
     }
 
 
