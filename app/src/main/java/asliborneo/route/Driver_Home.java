@@ -183,7 +183,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
-                place.getLatLng();
+
                 if(location_switch.isChecked()){
 
                     destination=place.getAddress().toString();

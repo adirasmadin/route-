@@ -13,4 +13,7 @@
     <string name="title_activity_driver_tracking">Map</string>
     <string name="title_activity_trip__detail">Map</string>
     <string name="title_activity_customer__call">Map</string>
+    <string name="permission_required_toast">require toast</string>
+    <string name="permission_rationale_location">require rationale location</string>
+    <string name="location_permission_denied">permission denied</string>
 </resources>

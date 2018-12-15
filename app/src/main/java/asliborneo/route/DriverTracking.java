@@ -1,5 +1,6 @@
 package asliborneo.route;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -11,6 +12,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -56,8 +58,9 @@ import retrofit2.Response;
 
 import static asliborneo.route.Driver_Home.mlastlocation;
 
-public class DriverTracking extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.OnConnectionFailedListener,GoogleApiClient.ConnectionCallbacks,LocationListener {
-    private GoogleMap mMap;
+public class DriverTracking extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.OnConnectionFailedListener,GoogleApiClient.ConnectionCallbacks,LocationListener,GoogleMap.OnMyLocationClickListener,GoogleMap.OnMyLocationButtonClickListener {
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private static GoogleMap mMap;
     double rider_lat,rider_lng;
     LocationRequest location_request;
     GoogleApiClient mGoogleapiclient;
@@ -67,6 +70,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     GeoFire geoFire;
     Button start_trip_btn;
     Location pick_up_location;
+    Marker destination_location_marker;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -95,6 +99,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             }
         });
         // geoFire=new GeoFire();
+        enableMyLocation();
     }
 
     private void Calculate_cash_fee(final Location pick_up_location, final Location mlastlocation) {
@@ -153,7 +158,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             final double latitude = mlastlocation.getLatitude();
             if(driver_marker!=null)
                 driver_marker.remove();
-            driver_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude,longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
+            driver_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude,longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),17.0f));
             if(direction!=null)
                 direction.remove();
@@ -188,19 +193,26 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiclient,location_request,this);
         // locationManager.requestLocationUpdates(Provider,20000,0,this);
     }
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
+
+    private void enableMyLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission to access the location is missing.
+            PermissionUtils.requestPermission(this, LOCATION_PERMISSION_REQUEST_CODE,
+                    Manifest.permission.ACCESS_FINE_LOCATION, true);
+        } else if (mMap != null) {
+            // Access to the location has been granted to the app.
+            mMap.setMyLocationEnabled(true);
+        }
+    }
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         mMap=googleMap;
+
+        mMap.setOnMyLocationButtonClickListener(this);
+        mMap.setOnMyLocationClickListener(this);
         try {
             boolean issucess = mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(DriverTracking.this, R.raw.uber_style_map));
             if (!issucess)
@@ -211,6 +223,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                 .radius(50)
                 .strokeColor(Color.BLUE).fillColor(0x220000FF)
                 .strokeWidth(5.0f));
+        destination_location_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(rider_lat,rider_lng)).title("PickUp Here").icon(BitmapDescriptorFactory.fromResource(R.drawable.pin)));
         geoFire=new GeoFire(FirebaseDatabase.getInstance().getReference("Drivers"));
         GeoQuery geoQuery=geoFire.queryAtLocation(new GeoLocation(rider_lat,rider_lng),0.05f);
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
@@ -218,10 +231,15 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             public void onKeyEntered(String key, GeoLocation location) {
                 send_arrived_notification(getIntent().getStringExtra("customer"));
                 start_trip_btn.setEnabled(true);
+                getIntent();
+                getDirection();
+
             }
 
             @Override
             public void onKeyExited(String key) {
+
+
 
             }
 
@@ -244,7 +262,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
     private void send_arrived_notification(String customer_id) {
         Token token=new Token(customer_id);
-        Notification notification=new Notification(String.format("Arrived","Usman"),"Driver has arrived at your door");
+        Notification notification=new Notification(String.format("Arrived"),"Driver has arrived");
 
         sender sender=new sender(notification,token.getToken());
         FCMService service=RetrofitClient.getClient().create(FCMService.class);
@@ -322,12 +340,12 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         String str_dest = "destination=" + rider_lat + "," + rider_lng;
 
         // Sensor enabled
-        String api_key="key=AIzaSyD_kyU9tY7U2piM5xGvk5x5YMYWWvp2oCo";
+        String api_key="AIzaSyD_kyU9tY7U2piM5xGvk5x5YMYWWvp2oCo";
         String transit_routing_preference="transit_routing_preference=less_driving";
         String mode = "mode=driving";
 
         // Building the parameters to the web service
-        String parameters = str_origin + "&" + str_dest + "&" + transit_routing_preference + "&" + mode+ "&" +api_key;
+        String parameters = mode+  "&" + transit_routing_preference+ "&" +  str_origin + "&" + str_dest + "&" +"&" +api_key;
 
         // Output format
         String output = "json";
@@ -337,7 +355,18 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
         return url;
     }
-    class DownloadTask extends AsyncTask<String,Void,String> {
+
+    @Override
+    public boolean onMyLocationButtonClick() {
+        return false;
+    }
+
+    @Override
+    public void onMyLocationClick(@NonNull Location location) {
+
+    }
+
+    static class DownloadTask extends AsyncTask<String,Void,String> {
         @Override
         protected String doInBackground(String... url) {
 

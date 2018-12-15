@@ -13,12 +13,15 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
+
 
 public class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<String,String>>>> {
     GoogleMap mMap;
-    public ParserTask(GoogleMap map) {
+    ParserTask(GoogleMap map) {
         this.mMap=map;
     }
+
 
     // Parsing the data in non-ui thread
     @Override
@@ -40,21 +43,22 @@ public class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<Str
 
     @Override
     protected void onPostExecute(List<List<HashMap<String,String>>> result) {
-        ArrayList points = null;
+        ArrayList<LatLng> points = null;
         PolylineOptions lineOptions = new PolylineOptions();
         MarkerOptions markerOptions = new MarkerOptions();
 
         for (int i = 0; i < result.size(); i++) {
-            points = new ArrayList();
+            points = new ArrayList<>();
             lineOptions = new PolylineOptions();
 
             List<HashMap<String, String>> path = result.get(i);
 
             for (int j = 0; j < path.size(); j++) {
-                HashMap point = path.get(j);
+                HashMap<? extends String, ? extends String> point = path.get(j);
 
-                double lat = Double.parseDouble((String) point.get("lat"));
-                double lng = Double.parseDouble((String) point.get("lng"));
+
+                double lat = Double.parseDouble(Objects.requireNonNull(point.get("lat")));
+                double lng = Double.parseDouble(Objects.requireNonNull(point.get("lng")));
                 LatLng position = new LatLng(lat, lng);
                 points.add(position);
             }
