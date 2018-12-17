@@ -9,6 +9,10 @@ public class sender {
         this.to = to;
     }
 
+    public sender() {
+        super();
+    }
+
     public Notification getNotification() {
         return notification;
     }

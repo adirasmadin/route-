@@ -1,6 +1,7 @@
 package asliborneo.route;
 
 import android.content.Intent;
+import android.support.constraint.Constraints;
 import android.util.Log;
 
 import com.google.android.gms.maps.model.LatLng;
@@ -17,15 +18,18 @@ import java.util.Objects;
 
 import asliborneo.route.Model.Token;
 
+import static android.support.constraint.Constraints.TAG;
 
 
 public class Service {
-    public static class MyFirebaseIdService extends FirebaseInstanceIdService {
+    public static class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
         @Override
         public void onTokenRefresh() {
             super.onTokenRefresh();
             String refreshedtoken= FirebaseInstanceId.getInstance().getToken();
             Updateservertoken(refreshedtoken);
+
+            Log.d(TAG, "Refreshed token: " + refreshedtoken);
         }
 
 
@@ -43,6 +47,23 @@ public class Service {
         @Override
         public void onMessageReceived(RemoteMessage remoteMessage) {
             super.onMessageReceived(remoteMessage);
+
+            Log.d(TAG, "From: " + remoteMessage.getFrom());
+            if (remoteMessage.getData().size() > 0) {
+                Log.d(TAG, "Message data payload: " + remoteMessage.getData());
+
+                if (/* Check if data needs to be processed by long running job */ true) {
+                    // For long-running tasks (10 seconds or more) use Firebase Job Dispatcher.
+                    scheduleJob();
+                } else {
+                    // Handle message within 10 seconds
+                    handleNow();
+                }
+
+            }
+            if (remoteMessage.getNotification() != null) {
+                Log.d(TAG, "Message Notification Body: " + remoteMessage.getNotification().getBody());
+            }
             LatLng Customer_location=new Gson().fromJson(Objects.requireNonNull(remoteMessage.getNotification()).getBody(),LatLng.class);
             Intent intent=new Intent(getBaseContext(), Customer_Call.class);
             intent.putExtra("lat",Customer_location.latitude);
@@ -50,6 +71,14 @@ public class Service {
             intent.putExtra("customer",remoteMessage.getNotification().getTitle());
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
+        }
+
+        private void handleNow() {
+
+        }
+
+        private void scheduleJob() {
+
         }
     }
 }
