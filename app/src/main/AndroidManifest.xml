@@ -12,7 +12,7 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/avatar"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
@@ -53,13 +53,13 @@
             android:label="@string/title_activity_trip__detail" />
 
         <service
-            android:name=".Service$MyFirebaseInstanceIdService">
+            android:name=".service.MyFirebaseInstanceIdService">
             <intent-filter>
                 <action android:name="com.google.firebase.INSTANCE_ID_EVENT"/>
             </intent-filter>
         </service>
         <service
-            android:name=".Service$MyFirebaseMessagingService">
+            android:name=".service.MyFirebaseMessagingService">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT"/>
             </intent-filter>
@@ -74,7 +74,7 @@
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher_round" />
+            android:resource="@mipmap/avatar" />
         <!-- Set color used with incoming notification messages. This is used when no color is set for the incoming
              notification message. See README(https://goo.gl/6BKBk7) for more. -->
         <meta-data
@@ -86,7 +86,7 @@
 
         <activity
             android:name=".Customer_Call"
-            android:label="@string/title_activity_customer__call"></activity>
+            android:label="@string/title_activity_customer__call"> </activity>
     </application>
 
 </manifest>

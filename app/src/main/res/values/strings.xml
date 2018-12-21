@@ -1,9 +1,10 @@
 <resources>
     <string name="app_name">route</string>
     <string name="default_notification_channel_id">0</string>
+    <string name="map_server_api">AIzaSyBQKBeP6mQnsFwYC7BWVJa9_igw6XNWj7E</string>
     <string name="title_activity_driver__home">Driver_Home</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="google_direction_api">AIzaSyBtssbTB-BQGwYZaCNgS9GScZLW13TQK-U</string>
+    <string name="google_direction_api">AIzaSyAxh5q4g1xyvvYaDSChIhlweqfAt8o8udA</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_title">Android Studio</string>
     <string name="nav_header_subtitle">android.studio@android.com</string>
@@ -19,4 +20,6 @@
     <string name="location_permission_denied">permission denied</string>
     <string name="default_notification_channel_name">New Message</string>
     <string name="msg_token_fmt">token</string>
+    <string name="Cancel">Cancel</string>
+    <string name="Accept">Accept</string>
 </resources>

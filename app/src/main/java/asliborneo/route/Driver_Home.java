@@ -1,5 +1,6 @@
 package asliborneo.route;
 
+import android.animation.ValueAnimator;
 import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,6 +9,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.Color;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
@@ -40,7 +42,7 @@ import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.github.glomadrian.materialanimatedswitch.MaterialAnimatedSwitch;
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationRequest;
@@ -49,16 +51,22 @@ import com.google.android.gms.location.places.AutocompleteFilter;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.maps.model.SquareCap;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -72,7 +80,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
-import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
@@ -81,7 +88,14 @@ import com.google.maps.android.SphericalUtil;
 import com.rengwuxian.materialedittext.MaterialEditText;
 import com.squareup.picasso.Picasso;
 
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -89,28 +103,112 @@ import asliborneo.route.Model.Token;
 import de.hdodenhof.circleimageview.CircleImageView;
 import dmax.dialog.SpotsDialog;
 import io.paperdb.Paper;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 
 public class Driver_Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,OnMapReadyCallback, com.google.android.gms.location.LocationListener,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
+
+
+    int PICK_IMAGE_REQUEST=9999;
     private GoogleMap mMap;
-    private LocationRequest location_request;
     private static final int MY_PERMISSION_REQUEST_CODE = 7000;
-    public static Location mlastlocation;
+    private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 1000;
+    private LocationRequest mLocationRequest;
+    private GoogleApiClient mGoogleapiclient;
+
+    private static int UPDATE_INTERVAL = 5000;
+    private static int FASTEST_INTERVAL = 3000;
+    private static int DISPLACEMENT = 10;
+
     DatabaseReference drivers;
-    GeoFire geoFire;
-    Marker mcurrent;
+    GeoFire geofire;
+    Marker mCurrent;
     MaterialAnimatedSwitch location_switch;
     SupportMapFragment mapFragment;
-    int PICK_IMAGE_REQUEST=9999;
-    private PlaceAutocompleteFragment autocompleteFragment;
+
+    private List<LatLng> polyLineList;
+    private  Marker carMarker;
+    private float v;
+    private double lat,lng;
+    Handler handler;
+    private LatLng startPosition,endPosition,currentPosition;
+    private int index,next;
+
+    private PlaceAutocompleteFragment places;
     AutocompleteFilter typefilter;
     private String destination;
-    private GoogleApiClient mGoogleapiclient;
-    private DatabaseReference onlineref,currentuserref;
-    FirebaseStorage storage;
+    private PolylineOptions polylineOptions,blackPolylineOptions;
+    private Polyline blackPolyline;
+    private com.google.android.gms.maps.model.Polyline greyPolyline;
+
+    private IGoogleMAPApi mService;
+
+    DatabaseReference onlineRef, currentUserRef;
+    FirebaseStorage firebaseStorage;
     StorageReference storageReference;
     private static final String TAG = "Driver_Home";
-    Marker searchUsers;
+
+
+    Runnable drawPathRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (index < polyLineList.size() - 1) {
+                index++;
+                next = index + 1;
+            }
+            if (index < polyLineList.size() - 1) {
+                startPosition = polyLineList.get(index);
+                endPosition = polyLineList.get(next);
+
+
+            }
+
+            final ValueAnimator valueAnimator = ValueAnimator.ofFloat(0, 1);
+            valueAnimator.setDuration(3000);
+            valueAnimator.setInterpolator(new LinearInterpolator());
+            valueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                    v = valueAnimator.getAnimatedFraction();
+                    lng = v * endPosition.longitude + (1 - v) * startPosition.longitude;
+                    lat = v * endPosition.latitude + (1 - v) * startPosition.latitude;
+                    LatLng newPos = new LatLng(lat, lng);
+                    carMarker.setPosition(newPos);
+                    carMarker.setAnchor(0.5f, 0.5f);
+                    carMarker.setRotation(getBearing(startPosition, newPos));
+                    mMap.moveCamera(CameraUpdateFactory.newCameraPosition(new CameraPosition.Builder().
+                            target(newPos).zoom(15.5f).build()
+                    ));
+
+
+                }
+            });
+
+            valueAnimator.start();
+            handler.postDelayed(this,3000);
+
+        }
+    };
+
+
+    private float getBearing(LatLng startPosition, LatLng endPosition) {
+        double lat = Math.abs(startPosition.latitude - endPosition.latitude);
+        double lng= Math.abs(startPosition.longitude - endPosition.longitude);
+
+        if (startPosition.latitude < endPosition.latitude && startPosition.longitude < endPosition.longitude)
+            return (float)(Math.toDegrees(Math.atan(lng/lat)));
+        else if(startPosition.latitude >= endPosition.latitude && startPosition.longitude <endPosition.longitude)
+            return (float) ((90-Math.toDegrees(Math.atan(lng/lat)))+90);
+        else if (startPosition.latitude >= endPosition.latitude && startPosition.longitude >= endPosition.longitude)
+            return (float) (Math.toDegrees(Math.atan(lng/lat))+180);
+        else if(startPosition.latitude < endPosition.latitude && startPosition.longitude >= endPosition.longitude)
+            return (float) ((90-Math.toDegrees(Math.atan(lng/lat)))+270);
+
+        return -1;
+
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,8 +221,12 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.addDrawerListener(toggle);
         toggle.syncState();
+
+
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
+
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         final SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -133,10 +235,10 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         CircleImageView avatar= navigation_header_view.findViewById(R.id.avatar);
         TextView name= navigation_header_view.findViewById(R.id.driver_name);
         TextView rating= navigation_header_view.findViewById(R.id.rating);
-        rating.setText(commons.current_user.getRates());
-        name.setText(commons.current_user.getName());
-        if (!TextUtils.isEmpty(commons.current_user.getAvatarurl())){
-            Picasso.with(Driver_Home.this).load(commons.current_user.getAvatarurl()).into(avatar);
+        rating.setText(Commons.current_user.getRates());
+        name.setText(Commons.current_user.getName());
+        if (!TextUtils.isEmpty(Commons.current_user.getAvatarurl())){
+            Picasso.with(Driver_Home.this).load(Commons.current_user.getAvatarurl()).into(avatar);
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -154,14 +256,14 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 Log.d(TAG, "Key: " + key + " Value: " + value);
             }
         }
-        storage=FirebaseStorage.getInstance();
-        storageReference=storage.getReference();
-        onlineref= FirebaseDatabase.getInstance().getReference().child(".info/connected");
-        currentuserref=FirebaseDatabase.getInstance().getReference("Drivers").child(FirebaseAuth.getInstance().getCurrentUser().getUid());
-        onlineref.addValueEventListener(new ValueEventListener() {
+        firebaseStorage=FirebaseStorage.getInstance();
+        storageReference=firebaseStorage.getReference();
+        onlineRef= FirebaseDatabase.getInstance().getReference().child(".info/connected");
+        currentUserRef=FirebaseDatabase.getInstance().getReference("Drivers").child(FirebaseAuth.getInstance().getCurrentUser().getUid());
+        onlineRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
-                currentuserref.onDisconnect().removeValue();
+                currentUserRef.onDisconnect().removeValue();
             }
 
             @Override
@@ -169,7 +271,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
             }
         });
-        autocompleteFragment = (PlaceAutocompleteFragment)
+        places = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.placetxt);
         location_switch = findViewById(R.id.location_switch);
         typefilter=new AutocompleteFilter.Builder()
@@ -177,8 +279,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 .setTypeFilter(3)
                 .build();
         drivers = FirebaseDatabase.getInstance().getReference("Drivers");
-        init_googleapiclient();
-        init_location_request();
+
 
         if (getIntent().getExtras() != null) {
             for (String key : getIntent().getExtras().keySet()) {
@@ -192,24 +293,29 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             public void onCheckedChanged(boolean isOnline) {
                 if (isOnline) {
                     FirebaseDatabase.getInstance().goOnline();
-                    start_location_update();
-                    display_location();
+                    startLocationUpdates();
+                    displayLocation();
                     Snackbar.make(mapFragment.getView(), "You are Online", Snackbar.LENGTH_SHORT).show();
                 }else
                 {
+
+                    stopLocationUpdates();
                     FirebaseDatabase.getInstance().goOffline();
-                    if(mcurrent!=null)
-                        mcurrent.remove();
-                    // mMap.clear();
-                    // handler.removeCallbacks(drawrunnable);
-                    stop_location_updates();
+                    if(mCurrent!=null)
+                        mCurrent.remove();
+                   mMap.clear();
+                    handler.removeCallbacks(drawPathRunnable);
+                  
                     Snackbar.make(mapFragment.getView(), "You are Offline", Snackbar.LENGTH_SHORT).show();
                 }
             }
         });
-        geoFire = new GeoFire(drivers);
-        // setuplocation();
-        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+        
+        polyLineList = new ArrayList<>();
+        drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
+        geofire = new GeoFire(drivers);
+     
+        places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
 
@@ -217,8 +323,9 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
                     destination=place.getAddress().toString();
                     destination=destination.replace(" ","+");
-                    searchUsers=    mMap.addMarker(new MarkerOptions().position(place.getLatLng()).title("Search Users this area").icon(BitmapDescriptorFactory.fromResource(R.drawable.destination_marker)));
+                        mMap.addMarker(new MarkerOptions().position(place.getLatLng()).title("Search Users this area").icon(BitmapDescriptorFactory.fromResource(R.drawable.destination_marker)));
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 15.0f));
+                    getDirection();
                 }else{
                     Toast.makeText(Driver_Home.this,"Please Change your status to Online",Toast.LENGTH_LONG).show();
                 }
@@ -231,7 +338,142 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             }
         });
         update_firebase_token();
-        setuplocation();
+        setupLocation();
+        
+        mService = Commons.getGoogleService();
+    }
+
+
+    private void getDirection()
+    {
+        currentPosition = new LatLng(Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude());
+        String requestApi = null;
+
+        requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
+                "mode=driving&" +
+                "transit_routing_preference=less_driving&" +
+                "origin=" + currentPosition.latitude + "," + currentPosition.longitude + "&" +
+                "destination=" +destination + "&" +
+                "key=" + getResources().getString(R.string.map_server_api);
+        Log.d("DIRECTION",requestApi);
+
+        mService.getPath(requestApi).enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+
+                try {
+                    JSONObject jsonObject = new JSONObject(response.body().toString());
+                    JSONArray jsonArray = jsonObject.getJSONArray("routes");
+                    for(int i=0; i<jsonArray.length(); i++)
+
+                    {
+                        JSONObject route = jsonArray.getJSONObject(i);
+                        JSONObject poly = route.getJSONObject("overview_polyline");
+                        String polyline = poly.getString("points");
+                        polyLineList = decodePoly(polyline);
+                    }
+
+                    LatLngBounds.Builder builder=new LatLngBounds.Builder();
+                    if(response.body() !=null )
+                    for(LatLng latLng:polyLineList)
+                        builder.include(latLng);
+                    LatLngBounds bounds=builder.build();
+
+                    CameraUpdate mCameraUpdate = CameraUpdateFactory.newLatLngBounds(bounds,2);
+                    mMap.animateCamera(mCameraUpdate);
+
+                    polylineOptions = new PolylineOptions();
+                    polylineOptions.color(Color.CYAN);
+                    polylineOptions.width(10);
+                    polylineOptions.startCap(new SquareCap());
+                    polylineOptions.endCap(new SquareCap());
+                    polylineOptions.jointType(JointType.ROUND);
+                    polylineOptions.addAll(polyLineList);
+                    greyPolyline = mMap.addPolyline(polylineOptions);
+
+                    blackPolylineOptions = new PolylineOptions();
+                    blackPolylineOptions.color(Color.CYAN);
+                    blackPolylineOptions.width(10);
+                    blackPolylineOptions.startCap(new SquareCap());
+                    blackPolylineOptions.endCap(new SquareCap());
+                    blackPolylineOptions.jointType(JointType.ROUND);
+                    blackPolyline = mMap.addPolyline(blackPolylineOptions);
+
+                    mMap.addMarker(new MarkerOptions().position(polyLineList.get(polyLineList.size()-1))
+                    .title("Pickup Location"));
+
+                    ValueAnimator polylineAnimator = ValueAnimator.ofInt(0,100);
+                    polylineAnimator.setDuration(2000);
+                    polylineAnimator.setInterpolator(new LinearInterpolator());
+                    polylineAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                        @Override
+                        public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                            List<LatLng> points = greyPolyline.getPoints();
+                            int percentValue = (int) valueAnimator.getAnimatedValue();
+                            int size = points.size();
+                            int newPoints = (int) (size * (percentValue/100.0f));
+                            List<LatLng> p = points.subList(0,newPoints);
+                            blackPolyline.setPoints(p);
+
+                        }
+                    });
+                    polylineAnimator.start();
+                    carMarker = mMap.addMarker(new MarkerOptions().position(currentPosition)
+                    .flat(true).icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
+
+                    handler = new Handler();
+                    index = -1;
+                    next=1;
+                    handler.postDelayed(drawPathRunnable,3000);
+
+
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+                Toast.makeText(Driver_Home.this, ""+t.getMessage(),Toast.LENGTH_LONG).show();
+            }
+        });
+
+    }
+
+    private List<LatLng> decodePoly(String encoded) {
+
+        List<LatLng> poly = new ArrayList<LatLng>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng((((double) lat / 1E5)),
+                    (((double) lng / 1E5)));
+            poly.add(p);
+        }
+
+        return poly;
+
     }
 
 
@@ -246,7 +488,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     }
     private void update_firebase_token() {
         FirebaseDatabase db=FirebaseDatabase.getInstance();
-        DatabaseReference tokens=db.getReference("Tokens");
+        DatabaseReference tokens=db.getReference(Commons.tokenTable);
         Token token=new Token(FirebaseInstanceId.getInstance().getToken());
         tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).setValue(token);
     }
@@ -256,70 +498,78 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             case MY_PERMISSION_REQUEST_CODE:
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     if (location_switch.isChecked())
-                        display_location();
+                        displayLocation();
                 }
         }
     }
-    private void setuplocation() {
+    private void setupLocation() {
         if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(Driver_Home.this, new String[]{
                     android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION
             }, MY_PERMISSION_REQUEST_CODE);
 
         } else {
-            if (location_switch.isChecked())
-                display_location();
+            if (checkPlayServices()) {
+                buildGoogleApiClient();
+                createLocationRequest();
+                if (location_switch.isChecked())
+                    displayLocation();
+            }
         }
     }
-    private void stop_location_updates() {
+    private void stopLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         // locationManager.removeUpdates(this);
         LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleapiclient,this);
     }
-    private void display_location() {
+    private void displayLocation() {
         if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        mlastlocation= LocationServices.FusedLocationApi.getLastLocation(mGoogleapiclient);
-        if (mlastlocation != null) {
+        Commons.mLastLocation= LocationServices.FusedLocationApi.getLastLocation(mGoogleapiclient);
+        if (Commons.mLastLocation != null) {
             if (location_switch.isChecked()) {
-                final double longitude = mlastlocation.getLongitude();
-                final double latitude = mlastlocation.getLatitude();
-                LatLng center=new LatLng(mlastlocation.getLatitude(),mlastlocation.getLongitude());
+                final double longitude = Commons.mLastLocation.getLongitude();
+                final double latitude = Commons.mLastLocation.getLatitude();
+                LatLng center=new LatLng(latitude,longitude);
                 LatLng northside= SphericalUtil.computeOffset(center,100000,0);
                 LatLng southside= SphericalUtil.computeOffset(center,100000,180);
                 LatLngBounds bounds=LatLngBounds.builder()
                         .include(northside)
                         .include(southside)
                         .build();
-                autocompleteFragment.setBoundsBias(bounds);
-                autocompleteFragment.setFilter(typefilter);
+                places.setBoundsBias(bounds);
+                places.setFilter(typefilter);
 
-                geoFire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
+                geofire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
                     @Override
                     public void onComplete(String key, DatabaseError error) {
-                        if (mcurrent != null) {
-                            mcurrent.remove();
+                        if (mCurrent != null) {
+                            mCurrent.remove();
                         }
-                        mcurrent=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
+                        mCurrent=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
                         // rotate_marker(mcurrent, -360, mMap);*/
                     }
                 });
             }
         }
+        else
+        {
+            Log.d("ERROR","Cannot get your location");
+        }
     }
-    private void init_location_request(){
-        location_request=new LocationRequest();
-        location_request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        location_request.setSmallestDisplacement(10);
-        location_request.setFastestInterval(3000);
-        location_request.setInterval(5000);
+    private void createLocationRequest(){
+        mLocationRequest=new LocationRequest();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setSmallestDisplacement(DISPLACEMENT);
+        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
+        mLocationRequest.setInterval(UPDATE_INTERVAL);
 
     }
-    private void init_googleapiclient(){
+    private void buildGoogleApiClient(){
         mGoogleapiclient=new GoogleApiClient.Builder(Driver_Home.this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
@@ -327,11 +577,30 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 .build();
         mGoogleapiclient.connect();
     }
-    private void start_location_update() {
+
+
+    private boolean checkPlayServices()
+    {
+        int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+        if (resultCode !=ConnectionResult.SUCCESS)
+        {
+            if(GooglePlayServicesUtil.isUserRecoverableError(resultCode))
+                GooglePlayServicesUtil.getErrorDialog(resultCode,this,PLAY_SERVICES_RESOLUTION_REQUEST).show();
+
+            else
+            {
+                Toast.makeText(this, "This device is not supported", Toast.LENGTH_LONG).show();
+                finish();
+            }
+            return false;
+        }
+        return true;
+    }
+    private void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiclient,location_request,this);
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiclient,mLocationRequest,this);
         // locationManager.requestLocationUpdates(Provider,20000,0,this);
     }
     private void rotate_marker(final Marker mcurrent, final float i, GoogleMap mMap) {
@@ -352,15 +621,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             }
         });
     }
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
+  
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -379,15 +640,17 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     }
     @Override
     public void onLocationChanged(Location location) {
-        mlastlocation=location;
-        display_location();
+        Commons.mLastLocation =location;
+        displayLocation();
     }
     @Override
     public void onConnected(@Nullable Bundle bundle) {
+        displayLocation();
+        startLocationUpdates();
     }
     @Override
     public void onConnectionSuspended(int i) {
-
+    mGoogleapiclient.connect();
     }
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {

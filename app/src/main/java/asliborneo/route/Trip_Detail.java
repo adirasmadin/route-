@@ -57,23 +57,24 @@ public class Trip_Detail extends FragmentActivity implements OnMapReadyCallback 
     private void Setting_information() {
         if(getIntent()!=null){
             Calendar calendar=Calendar.getInstance();
-            String Date=String.format("%s,  %d,%d",convert_to_days_of_week(calendar.get(Calendar.DAY_OF_WEEK)),calendar.get(Calendar.DAY_OF_MONTH),calendar.get(Calendar.MONTH));
+            String Date=String.format("%s,  %d,%d",convert_to_days_of_week(calendar.get(Calendar.DAY_OF_WEEK)),calendar.get(Calendar.DAY_OF_MONTH),calendar.get(Calendar.YEAR));
             txt_date.setText(Date);
-            txt_fee.setText(String.format("$ %.2f",getIntent().getDoubleExtra("Total",0.0)));
-            base_fare.setText(String.valueOf(commons.base_fare));
-            estimated_payout.setText(String.format("RM %.2f",getIntent().getDoubleExtra("Total",0.0)));
-            txt_time.setText(String.format("%s min",getIntent().getStringExtra("Time")));
-            txt_distance.setText(String.format("%s km",getIntent().getStringExtra("Distance")));
+            txt_fee.setText(String.format("RM %.2f",getIntent().getDoubleExtra("total",0.0)));
+            base_fare.setText(String.valueOf(Commons.base_fare));
+            estimated_payout.setText(String.format("RM %.2f",getIntent().getDoubleExtra("total",0.0)));
+            txt_time.setText(String.format("%s min",getIntent().getStringExtra("time")));
+            txt_distance.setText(String.format("%s km",getIntent().getStringExtra("distance")));
             txt_from.setText(getIntent().getStringExtra("start_address"));
             txt_to.setText(getIntent().getStringExtra("end_address"));
-            String[] location_end=getIntent().getStringExtra("Location_end").split(",");
+            String[] location_end=getIntent().getStringExtra("location_end").split(",");
             LatLng drop_off=new LatLng(Double.parseDouble(location_end[0]),Double.parseDouble(location_end[1]));
             mMap.addMarker(new MarkerOptions().position(drop_off).title("Drop off Here").icon(BitmapDescriptorFactory.fromResource(R.drawable.destination_marker)));
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(drop_off,12.0f));
         }
     }
 
-    private String convert_to_days_of_week(int i) {
+    private String convert_to_days_of_week(int i ) {
+
         switch(i) {
             case Calendar.SUNDAY:
                 return "Sunday";

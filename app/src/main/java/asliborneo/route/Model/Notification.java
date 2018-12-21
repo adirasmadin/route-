@@ -2,7 +2,7 @@ package asliborneo.route.Model;
 
 public class Notification{
     public String title;
-    public String detail;
+    public String body;
 
     public String getTitle() {
         return title;
@@ -13,11 +13,11 @@ public class Notification{
     }
 
     public String getBody() {
-        return detail;
+        return body;
     }
 
     public void setBody(String body) {
-        this.detail = body;
+        this.body = body;
     }
 
     public Notification() {
@@ -25,6 +25,6 @@ public class Notification{
 
     public Notification(String title, String body) {
         this.title = title;
-        this.detail = body;
+        this.body = body;
     }
 }

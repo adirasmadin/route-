@@ -3,6 +3,7 @@ package asliborneo.route;
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -26,6 +27,7 @@ import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
 import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
@@ -41,6 +43,8 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.database.DatabaseError;
@@ -48,35 +52,48 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.InstanceIdResult;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
 
 import asliborneo.route.Model.Notification;
 import asliborneo.route.Model.Token;
-import asliborneo.route.Model.fcm_response;
-import asliborneo.route.Model.sender;
+import asliborneo.route.Model.FCMResponse;
+import asliborneo.route.Model.Sender;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-import static asliborneo.route.Driver_Home.mlastlocation;
+import static asliborneo.route.Commons.fcmURL;
+
 
 public class DriverTracking extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.OnConnectionFailedListener,GoogleApiClient.ConnectionCallbacks,LocationListener,GoogleMap.OnMyLocationClickListener,GoogleMap.OnMyLocationButtonClickListener {
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    private  static final int PLAY_SERVICE_RESOLUTION_REQUEST = 7001;
     private static GoogleMap mMap;
-    double rider_lat,rider_lng;
-    LocationRequest location_request;
-    GoogleApiClient mGoogleapiclient;
+    double riderLat,riderLng;
+    LocationRequest mLocationRequest;
+    GoogleApiClient mGoogleapiClient;
     private Circle rider_marker;
     private Marker driver_marker;
-    private com.google.android.gms.maps.model.Polyline direction;
+   private Polyline direction;
     GeoFire geoFire;
     Button start_trip_btn;
     Location pick_up_location;
+    IGoogleMAPApi mService;
+    FCMService mFCMService;
+
+    private static int UPDATE_INTERVAL =5000;
+    private static int FASTEST_INTERVAL=3000;
+    private static int DISPLACEMENT = 10;
+
+
+
+
     Marker destination_location_marker;
     private static final String TAG = "DriverTracking";
     @Override
@@ -89,11 +106,15 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         mapFragment.getMapAsync(this);
         start_trip_btn= findViewById(R.id.start_trip);
         if (getIntent()!=null){
-            rider_lat=getIntent().getDoubleExtra("lat",-1.0);
-            rider_lng=getIntent().getDoubleExtra("lng",-1.0);
+            riderLat=getIntent().getDoubleExtra("lat",-1.0);
+            riderLng=getIntent().getDoubleExtra("lng",-1.0);
         }
-        init_googleapiclient();
-        init_location_request();
+
+
+        mService =Commons.getGoogleService();
+        mFCMService = Commons.getFCMService();
+
+
         start_trip_btn= findViewById(R.id.start_trip);
         start_trip_btn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -117,10 +138,10 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                             }
                         });
                 if(start_trip_btn.getText().toString().equals("Start Trip")){
-                    pick_up_location=mlastlocation;
+                    pick_up_location=Commons.mLastLocation;
                     start_trip_btn.setText("Drop off Here");
                 }else  if(start_trip_btn.getText().toString().equals("Drop off Here")){
-                    Calculate_cash_fee(pick_up_location,mlastlocation);
+                    calculateCashFee(pick_up_location,Commons.mLastLocation);
                 }
             }
         });
@@ -142,62 +163,119 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                 Log.d(TAG, "Key: " + key + " Value: " + value);
             }
         }
+
+        setupLocation();
     }
 
-    private void Calculate_cash_fee(final Location pick_up_location, final Location mlastlocation) {
-        IGoogleAPI service=RetrofitClient.get_direction_client().create(IGoogleAPI.class);
-        Call<Directions> call=service.getPath("driving","less_driving" ,mlastlocation.getLatitude()+","+mlastlocation.getLongitude(),pick_up_location.getLatitude()+","+pick_up_location.getLongitude(),"AIzaSyBtssbTB-BQGwYZaCNgS9GScZLW13TQK-U");
-        call.enqueue(new Callback<Directions>() {
-            @Override
-            public void onResponse(Call<Directions> call, Response<Directions> response) {
-                if(response.body()!=null){
-                    if( response.body().routes.size()>0)
-                        if(response.body().routes.get(0).legs.size()>0) {
-                            String distance_text=response.body().routes.get(0).legs.get(0).distance.text;
-                            Double distance_value=Double.parseDouble(distance_text.replaceAll("[^0-9\\\\.]+",""));
-                            //  response.body().routes.get(0).legs.get(0).start_address;
-                            String time_text= response.body().routes.get(0).legs.get(0).duration.text;
-                            Double time_value=Double.parseDouble(time_text.replaceAll("[^0-9\\\\.]+",""));
-                            send_dropoff_notification(getIntent().getStringExtra("customer"));
-                            Intent intent=new Intent(DriverTracking.this,Trip_Detail.class);
-                            intent.putExtra("start_address",response.body().routes.get(0).legs.get(0).start_address);
-                            intent.putExtra("Time",String.valueOf(time_value));
-                            intent.putExtra("Distance",String.valueOf(distance_value));
-                            intent.putExtra("end_address",response.body().routes.get(0).legs.get(0).end_address);
-                            intent.putExtra("Total",commons.price_formula(distance_value,time_value));
-                            intent.putExtra("Location_start",String.format("%f,%f",pick_up_location.getLatitude(),pick_up_location.getLongitude()));
-                            intent.putExtra("Location_end",String.format("%f,%f",mlastlocation.getLatitude(),mlastlocation.getLongitude()));
-                            startActivity(intent);
-                            finish();
+    private boolean checkPlayServices()
+    {
+        int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+        if (resultCode !=ConnectionResult.SUCCESS)
+        {
+            if(GooglePlayServicesUtil.isUserRecoverableError(resultCode))
+                GooglePlayServicesUtil.getErrorDialog(resultCode,this,PLAY_SERVICE_RESOLUTION_REQUEST).show();
 
-                        }
-                }else{
+            else
+            {
+                Toast.makeText(this, "This device is not supported", Toast.LENGTH_LONG).show();
+                finish();
+            }
+            return false;
+        }
+        return true;
+    }
+    private void setupLocation() {
+
+
+            if (checkPlayServices()) {
+                buildGoogleApiClient();
+                createLocationRequest();
+
+                    displayLocation();
+            }
+        }
+
+
+    private void calculateCashFee(final Location pickupLocation, Location mLastLocation) {
+
+
+        String requestApi = null;
+
+
+        try {
+            requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
+                    "mode=driving&" +
+                    "transit_routing_preference=less_driving&" +
+                    "origin=" + pickupLocation.getLatitude() + "," + pickupLocation.getLongitude() + "&" +
+                    "destination=" + mLastLocation.getLatitude() + "," + mLastLocation.getLongitude() + "&" +
+                    "key=" + getResources().getString(R.string.map_server_api);
+
+
+            mService.getPath(requestApi).enqueue(new Callback<String>() {
+                @Override
+                public void onResponse(Call<String> call, Response<String> response) {
+                    try {
+
+                        JSONObject jsonObject = new JSONObject((response.body().toString()));
+                        JSONArray routes = jsonObject.getJSONArray("routes");
+
+                        JSONObject object = routes.getJSONObject(0);
+
+                        JSONArray legs = object.getJSONArray("legs");
+                        JSONObject legsObject = legs.getJSONObject(0);
+
+                        JSONObject distance = legsObject.getJSONObject("distance");
+                        String distance_text = distance.getString("text");
+
+                        Double distance_value = Double.parseDouble(distance_text.replaceAll("[^0-9\\\\.]+", ""));
+
+                        JSONObject time = legsObject.getJSONObject("duration");
+                        String time_text = time.getString("text");
+                        Integer time_value = Integer.parseInt(time_text.replaceAll("\\D+", ""));
+
+                        Intent intent = new Intent(DriverTracking.this, Trip_Detail.class);
+                        intent.putExtra("start_address", legsObject.getString("start_address"));
+                        intent.putExtra("end_address", legsObject.getString("end_address"));
+                        intent.putExtra("time", String.valueOf(time_value));
+                        intent.putExtra("distance", String.valueOf(distance_value));
+                        intent.putExtra("total", Commons.price_formula(distance_value, time_value));
+                        intent.putExtra("location_start", String.format("%f,%f", pickupLocation.getLatitude(), pickupLocation.getLongitude()));
+                        intent.putExtra("location_end", String.format("%f,%f", Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude()));
+
+                        startActivity(intent);
+                        finish();
+
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
 
-            @Override
-            public void onFailure(Call<Directions> call, Throwable t) {
-                Log.e("direction_error",t.getMessage());
-            }
-        });
+                @Override
+                public void onFailure(Call<String> call, Throwable t) {
+                    Toast.makeText(DriverTracking.this, "" + t.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
-
     private void stop_location_updates() {
         if (ActivityCompat.checkSelfPermission(DriverTracking.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         // locationManager.removeUpdates(this);
-        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleapiclient,this);
+        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleapiClient,this);
     }
-    private void display_location() {
+    private void displayLocation() {
         if (ActivityCompat.checkSelfPermission(DriverTracking.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        mlastlocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleapiclient);
-        if (mlastlocation != null) {
+        Commons.mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleapiClient);
+        if (Commons.mLastLocation != null) {
 
-            final double longitude = mlastlocation.getLongitude();
-            final double latitude = mlastlocation.getLatitude();
+            final double longitude = Commons.mLastLocation.getLongitude();
+            final double latitude = Commons.mLastLocation.getLatitude();
             if(driver_marker!=null)
                 driver_marker.remove();
             driver_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude,longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
@@ -209,30 +287,58 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     }
 
     private void getDirection() {
-        new DownloadTask().execute(getDirectionsUrl());
+       LatLng currentPosition = new LatLng(Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude());
+        String requestApi = null;
+
+        requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
+                "mode=driving&" +
+                "transit_routing_preference=less_driving&" +
+                "origin=" + currentPosition.latitude + "," + currentPosition.longitude + "&" +
+                "destination=" +riderLat + "," + riderLng + "&" +
+                "key=" + getResources().getString(R.string.map_server_api);
+        Log.d("DIRECTION",requestApi);
+
+        mService.getPath(requestApi).enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+
+                try {
+
+                new ParserTask().execute(response.body().toString());
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+                Toast.makeText(DriverTracking.this, ""+t.getMessage(),Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
-    private void init_location_request(){
-        location_request=new LocationRequest();
-        location_request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        location_request.setSmallestDisplacement(10);
-        location_request.setFastestInterval(3000);
-        location_request.setInterval(5000);
+    private void createLocationRequest(){
+        mLocationRequest=new LocationRequest();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setSmallestDisplacement(10);
+        mLocationRequest.setFastestInterval(3000);
+        mLocationRequest.setInterval(5000);
 
     }
-    private void init_googleapiclient(){
-        mGoogleapiclient=new GoogleApiClient.Builder(DriverTracking.this)
+    private void buildGoogleApiClient(){
+        mGoogleapiClient=new GoogleApiClient.Builder(DriverTracking.this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
-        mGoogleapiclient.connect();
+        mGoogleapiClient.connect();
     }
-    private void start_location_update() {
+    private void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(DriverTracking.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiclient,location_request,this);
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiClient,mLocationRequest,this);
         // locationManager.requestLocationUpdates(Provider,20000,0,this);
     }
 
@@ -260,14 +366,16 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             if (!issucess)
                 Toast.makeText(DriverTracking.this, "Error setting Map Style", Toast.LENGTH_LONG).show();
         }catch(Resources.NotFoundException ex){ex.printStackTrace();}
+
+
         rider_marker=mMap.addCircle(new CircleOptions()
-                .center(new LatLng(rider_lat,rider_lng))
+                .center(new LatLng(riderLat,riderLng))
                 .radius(50)
-                .strokeColor(Color.BLUE).fillColor(0x220000FF)
+                .strokeColor(Color.TRANSPARENT).fillColor(0x220000FF)
                 .strokeWidth(5.0f));
-        destination_location_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(rider_lat,rider_lng)).title("PickUp Here").icon(BitmapDescriptorFactory.fromResource(R.drawable.pin)));
+        destination_location_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(riderLat,riderLng)).title("PickUp Here").icon(BitmapDescriptorFactory.fromResource(R.drawable.pin)));
         geoFire=new GeoFire(FirebaseDatabase.getInstance().getReference("Drivers"));
-        GeoQuery geoQuery=geoFire.queryAtLocation(new GeoLocation(rider_lat,rider_lng),0.05f);
+        GeoQuery geoQuery=geoFire.queryAtLocation(new GeoLocation(riderLat,riderLng),0.05f);
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
             @Override
             public void onKeyEntered(String key, GeoLocation location) {
@@ -306,12 +414,12 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         Token token=new Token(customer_id);
         Notification notification=new Notification(String.format("Arrived"),"Driver has arrived");
 
-        sender sender=new sender(notification,token.getToken());
-        FCMService service=RetrofitClient.getClient().create(FCMService.class);
-        Call<fcm_response> call=service.send_message(sender);
-        call.enqueue(new Callback<fcm_response>() {
+        Sender sender=new Sender(notification,token.getToken());
+        mFCMService=FCMClient.getClient(fcmURL).create(FCMService.class);
+        Call<FCMResponse> call=mFCMService.sendMessage(sender);
+        call.enqueue(new Callback<FCMResponse>() {
             @Override
-            public void onResponse(Call<fcm_response> call, Response<fcm_response> response) {
+            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
                 if(response.body() !=null)
                     if(response.body().success!=1){
                         Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
@@ -322,7 +430,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             }
 
             @Override
-            public void onFailure(Call<fcm_response> call, Throwable t) {
+            public void onFailure(Call<FCMResponse> call, Throwable t) {
                 Log.e("fcm_problem",t.toString());
             }
         });
@@ -331,12 +439,11 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         Token token=new Token(customer_id);
         Notification notification=new Notification("Drop Off",customer_id);
 
-        sender sender=new sender(notification,token.getToken());
-        FCMService service=RetrofitClient.getClient().create(FCMService.class);
-        Call<fcm_response> call=service.send_message(sender);
-        call.enqueue(new Callback<fcm_response>() {
+        Sender sender=new Sender(notification,token.getToken());
+        Call<FCMResponse> call=mFCMService.sendMessage(sender);
+        call.enqueue(new Callback<FCMResponse>() {
             @Override
-            public void onResponse(Call<fcm_response> call, Response<fcm_response> response) {
+            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
                 if(response.body() !=null)
                     if(response.body().success!=1){
                         Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
@@ -347,20 +454,20 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             }
 
             @Override
-            public void onFailure(Call<fcm_response> call, Throwable t) {
+            public void onFailure(Call<FCMResponse> call, Throwable t) {
                 Log.e("fcm_problem",t.toString());
             }
         });
     }
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        display_location();
-        start_location_update();
+        displayLocation();
+        startLocationUpdates();
     }
 
     @Override
     public void onConnectionSuspended(int i) {
-        mGoogleapiclient.connect();
+        mGoogleapiClient.connect();
     }
 
     @Override
@@ -370,33 +477,10 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
     @Override
     public void onLocationChanged(Location location) {
-        mlastlocation=location;
-        display_location();
+        Commons.mLastLocation=location;
+        displayLocation();
     }
-    private String getDirectionsUrl() {
 
-        // Origin of route
-        String str_origin = "origin=" + mlastlocation.getLatitude() + "," + mlastlocation.getLongitude();
-
-        // Destination of route
-        String str_dest = "destination=" + rider_lat + "," + rider_lng;
-
-        // Sensor enabled
-        String api_key="AIzaSyD_kyU9tY7U2piM5xGvk5x5YMYWWvp2oCo";
-        String transit_routing_preference="transit_routing_preference=less_driving";
-        String mode = "mode=driving";
-
-        // Building the parameters to the web service
-        String parameters = mode+  "&" + transit_routing_preference+ "&" +  str_origin + "&" + str_dest + "&" +"&" +api_key;
-
-        // Output format
-        String output = "json";
-
-        // Building the url to the web service
-        String url = "https://maps.googleapis.com/maps/api/directions/json?"+parameters;
-
-        return url;
-    }
 
     @Override
     public boolean onMyLocationButtonClick() {
@@ -408,62 +492,76 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
     }
 
-    static class DownloadTask extends AsyncTask<String,Void,String> {
+
+
+    private class ParserTask extends AsyncTask<String, Integer, List<List<HashMap<String,String>>>> {
+        ProgressDialog mDialog = new ProgressDialog(DriverTracking.this);
+
         @Override
-        protected String doInBackground(String... url) {
+        protected void onPreExecute() {
+            super.onPreExecute();
+            mDialog.setMessage("please wait...");
+            mDialog.show();
+        }
 
-            String data = "";
+        @Override
+            protected List<List<HashMap<String,String>>> doInBackground(String... strings) {
 
-            try {
-                data = downloadUrl(url[0]);
-            } catch (Exception e) {
-                Log.d("Background Task", e.toString());
+                JSONObject jObject;
+                List<List<HashMap<String, String>>> routes = null;
+
+                try {
+                    jObject = new JSONObject(strings[0]);
+                    DirectionJSONParser parser = new DirectionJSONParser();
+
+                    routes = parser.parse(jObject);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                return routes;
             }
-            return data;
-        }
 
-        @Override
-        protected void onPostExecute(String result) {
-            super.onPostExecute(result);
+            @Override
+            protected void onPostExecute(List<List<HashMap<String,String>>> lists) {
+                mDialog.dismiss();
+                ArrayList points = null;
+                PolylineOptions polylineOptions = null;
 
-            ParserTask parserTask = new ParserTask(mMap);
-            parserTask.execute(result);
 
-        }
+                for (int i = 0; i < lists.size(); i++) {
+                    points = new ArrayList<>();
+                    polylineOptions = new PolylineOptions();
 
-        private String downloadUrl(String strUrl) throws IOException {
-            String data = "";
-            InputStream iStream = null;
-            HttpURLConnection urlConnection = null;
-            try {
-                URL url = new URL(strUrl);
+                    List<HashMap<String, String>> path = lists.get(i);
 
-                urlConnection = (HttpURLConnection) url.openConnection();
+                    for (int j = 0; j < path.size(); j++) {
+                        HashMap< String, String> point = path.get(j);
 
-                urlConnection.connect();
 
-                iStream = urlConnection.getInputStream();
+                        double lat = Double.parseDouble(point.get("lat"));
+                        double lng = Double.parseDouble(point.get("lng"));
+                        LatLng position = new LatLng(lat, lng);
+                        points.add(position);
+                    }
 
-                BufferedReader br = new BufferedReader(new InputStreamReader(iStream));
 
-                StringBuffer sb = new StringBuffer();
 
-                String line = "";
-                while ((line = br.readLine()) != null) {
-                    sb.append(line);
+                    polylineOptions.addAll(points);
+                    polylineOptions.width(16);
+                    polylineOptions.color(Color.CYAN);
+                    polylineOptions.geodesic(true);
+
+
+                    polylineOptions.color(ContextCompat.getColor(getApplicationContext(),R.color.colorPrimary));
+
+
+
                 }
 
-                data = sb.toString();
 
-                br.close();
-
-            } catch (Exception e) {
-                Log.d("Exception", e.toString());
-            } finally {
-                iStream.close();
-                urlConnection.disconnect();
+               direction= mMap.addPolyline(polylineOptions);
             }
-            return data;
         }
+
     }
-}
+

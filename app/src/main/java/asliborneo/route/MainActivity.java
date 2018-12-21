@@ -56,8 +56,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         auth=FirebaseAuth.getInstance();
         db=FirebaseDatabase.getInstance();
-        users=db.getReference("DriverInformation");
-        commons.current_user=new User();
+        users=db.getReference(Commons.Registered_driver);
+        Commons.current_user=new User();
         txt_forgot_password= findViewById(R.id.txt_forgot_password);
         txt_forgot_password.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -81,8 +81,8 @@ public class MainActivity extends AppCompatActivity {
                 show_login_dialog();
             }
         });
-        String username=Paper.book().read(commons.user_field);
-        String password=Paper.book().read(commons.password_field);
+        String username=Paper.book().read(Commons.user_field);
+        String password=Paper.book().read(Commons.password_field);
         if(username!=null&&password!=null){
             if(!TextUtils.isEmpty(username)&&!TextUtils.isEmpty(password)){
                 auto_login(username,password);
@@ -97,10 +97,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
                 if(task.isSuccessful()){
-                    FirebaseDatabase.getInstance().getReference("DriverInformation").child(FirebaseAuth.getInstance().getCurrentUser().getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+                    FirebaseDatabase.getInstance().getReference(Commons.Registered_driver).child(FirebaseAuth.getInstance().getCurrentUser().getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(DataSnapshot dataSnapshot) {
-                            commons.current_user=dataSnapshot.getValue(User.class);
+                            Commons.current_user=dataSnapshot.getValue(User.class);
                             waitingdialog.dismiss();
                             Toast.makeText(MainActivity.this,"Login Sucess",Toast.LENGTH_LONG).show();
                             startActivity(new Intent(MainActivity.this,Driver_Home.class));
@@ -250,12 +250,12 @@ public class MainActivity extends AppCompatActivity {
                         @Override
                         public void onComplete(@NonNull Task<AuthResult> task) {
                             if(task.isSuccessful()){
-                                FirebaseDatabase.getInstance().getReference("DriverInformation").child(FirebaseAuth.getInstance().getCurrentUser().getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+                                FirebaseDatabase.getInstance().getReference(Commons.Registered_driver).child(FirebaseAuth.getInstance().getCurrentUser().getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
                                     public void onDataChange(DataSnapshot dataSnapshot) {
-                                        Paper.book().write(commons.user_field,email.getText().toString());
-                                        Paper.book().write(commons.password_field,password.getText().toString());
-                                        commons.current_user=dataSnapshot.getValue(User.class);
+                                        Paper.book().write(Commons.user_field,email.getText().toString());
+                                        Paper.book().write(Commons.password_field,password.getText().toString());
+                                        Commons.current_user=dataSnapshot.getValue(User.class);
                                         waitingdialog.dismiss();
                                         Toast.makeText(MainActivity.this,"Login Sucess",Toast.LENGTH_LONG).show();
                                         startActivity(new Intent(MainActivity.this,Driver_Home.class));

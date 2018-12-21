@@ -2,7 +2,7 @@ package asliborneo.route.Model;
 
 import java.util.List;
 
-public class fcm_response {
+public class FCMResponse {
     public long multicast_id;
     public int success;
     public int failure;
@@ -49,7 +49,7 @@ public class fcm_response {
         this.results = results;
     }
 
-    public fcm_response(long multicast_id, int success, int failure, int canonical_ids, List<Result> results) {
+    public FCMResponse(long multicast_id, int success, int failure, int canonical_ids, List<Result> results) {
         this.multicast_id = multicast_id;
         this.success = success;
         this.failure = failure;
