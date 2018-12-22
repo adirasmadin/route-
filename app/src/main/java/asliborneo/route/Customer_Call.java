@@ -55,7 +55,7 @@ public class Customer_Call extends AppCompatActivity {
     FCMService mFCMService;
     IGoogleMAPApi mService;
 
-    String customer_id;
+    String Customer_id;
     double lat,lng;
     private static final String TAG = "Customer_Call";
     @Override
@@ -78,8 +78,8 @@ public class Customer_Call extends AppCompatActivity {
         cancel_btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(!TextUtils.isEmpty(customer_id)){
-                    cancel_booking(customer_id);
+                if(!TextUtils.isEmpty(Customer_id)){
+                    cancel_booking(Customer_id);
                 }
             }
         });
@@ -89,7 +89,7 @@ public class Customer_Call extends AppCompatActivity {
                 Intent intent=new Intent(Customer_Call.this,DriverTracking.class);
                 intent.putExtra("lat",lat);
                 intent.putExtra("lng",lng);
-                intent.putExtra("customer",customer_id);
+                intent.putExtra("customer",Customer_id);
                 startActivity(intent);
                 finish();
             }
@@ -101,28 +101,13 @@ public class Customer_Call extends AppCompatActivity {
 
 
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Create channel to show notifications.
-            String channelId  = getString(R.string.default_notification_channel_id);
-            String channelName = getString(R.string.default_notification_channel_name);
-            NotificationManager notificationManager =
-                    getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(new NotificationChannel(channelId,
-                    channelName, NotificationManager.IMPORTANCE_LOW));
-        }
-        if (getIntent().getExtras() != null) {
-            for (String key : getIntent().getExtras().keySet()) {
-                Object value = getIntent().getExtras().get(key);
-                Log.d(TAG, "Key: " + key + " Value: " + value);
-            }
-        }
 
         if (getIntent() != null) {
 
 
             lat = getIntent().getDoubleExtra("lat", -1.0);
             lng = getIntent().getDoubleExtra("lng", -1.0);
-            customer_id=getIntent().getStringExtra("customer");
+            Customer_id=getIntent().getStringExtra("customer");
             getDirection(lat,lng);
         }
 
@@ -185,12 +170,14 @@ public class Customer_Call extends AppCompatActivity {
         Notification notification=new Notification("Notice!","Driver has canceled your Request");
         Sender sender=new Sender(notification,token.getToken());
 
-        Call<FCMResponse> call=mFCMService.sendMessage(sender);
-        call.enqueue(new Callback<FCMResponse>() {
+        mFCMService.sendMessage(sender).
+        enqueue(new Callback<FCMResponse>() {
             @Override
             public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
                 if ( response.body().success == 1) {
                     Toast.makeText(Customer_Call.this, "Cancelled", Toast.LENGTH_LONG).show();
+                    Intent intent = new Intent(Customer_Call.this,Driver_Home.class);
+                    startActivity(intent);
                     finish();
                 }
             }

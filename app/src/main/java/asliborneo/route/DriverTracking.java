@@ -1,8 +1,6 @@
 package asliborneo.route;
 
 import android.Manifest;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,7 +8,6 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -58,7 +55,6 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 
 import asliborneo.route.Model.Notification;
 import asliborneo.route.Model.Token;
@@ -74,6 +70,7 @@ import static asliborneo.route.Commons.fcmURL;
 public class DriverTracking extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.OnConnectionFailedListener,GoogleApiClient.ConnectionCallbacks,LocationListener,GoogleMap.OnMyLocationClickListener,GoogleMap.OnMyLocationButtonClickListener {
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
     private  static final int PLAY_SERVICE_RESOLUTION_REQUEST = 7001;
+
     private static GoogleMap mMap;
     double riderLat,riderLng;
     LocationRequest mLocationRequest;
@@ -86,6 +83,9 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     Location pick_up_location;
     IGoogleMAPApi mService;
     FCMService mFCMService;
+    String customer_id;
+
+
 
     private static int UPDATE_INTERVAL =5000;
     private static int FASTEST_INTERVAL=3000;
@@ -108,6 +108,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         if (getIntent()!=null){
             riderLat=getIntent().getDoubleExtra("lat",-1.0);
             riderLng=getIntent().getDoubleExtra("lng",-1.0);
+            customer_id = getIntent().getStringExtra("customer");
         }
 
 
@@ -148,21 +149,6 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         // geoFire=new GeoFire();
         enableMyLocation();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Create channel to show notifications.
-            String channelId  = getString(R.string.default_notification_channel_id);
-            String channelName = getString(R.string.default_notification_channel_name);
-            NotificationManager notificationManager =
-                    getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(new NotificationChannel(channelId,
-                    channelName, NotificationManager.IMPORTANCE_LOW));
-        }
-        if (getIntent().getExtras() != null) {
-            for (String key : getIntent().getExtras().keySet()) {
-                Object value = getIntent().getExtras().get(key);
-                Log.d(TAG, "Key: " + key + " Value: " + value);
-            }
-        }
 
         setupLocation();
     }
@@ -195,7 +181,28 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             }
         }
 
+    private void send_dropoff_notification(String customer_id) {
+        Token token=new Token(customer_id);
+        Notification notification=new Notification("Drop Off",customer_id);
 
+        Sender sender=new Sender(notification,token.getToken());
+        mFCMService.sendMessage(sender)
+        .enqueue(new Callback<FCMResponse>() {
+            @Override
+            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                if(response.body() !=null)
+                    if(response.body().success!=1){
+                        Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
+                    }
+
+            }
+
+            @Override
+            public void onFailure(Call<FCMResponse> call, Throwable t) {
+                Log.e("fcm_problem",t.toString());
+            }
+        });
+    }
     private void calculateCashFee(final Location pickupLocation, Location mLastLocation) {
 
 
@@ -233,6 +240,8 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                         String time_text = time.getString("text");
                         Integer time_value = Integer.parseInt(time_text.replaceAll("\\D+", ""));
 
+
+                        send_dropoff_notification(customer_id);
                         Intent intent = new Intent(DriverTracking.this, Trip_Detail.class);
                         intent.putExtra("start_address", legsObject.getString("start_address"));
                         intent.putExtra("end_address", legsObject.getString("end_address"));
@@ -285,6 +294,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             getDirection();
         }
     }
+
 
     private void getDirection() {
        LatLng currentPosition = new LatLng(Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude());
@@ -416,8 +426,8 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
         Sender sender=new Sender(notification,token.getToken());
         mFCMService=FCMClient.getClient(fcmURL).create(FCMService.class);
-        Call<FCMResponse> call=mFCMService.sendMessage(sender);
-        call.enqueue(new Callback<FCMResponse>() {
+        mFCMService.sendMessage(sender)
+        .enqueue(new Callback<FCMResponse>() {
             @Override
             public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
                 if(response.body() !=null)
@@ -435,30 +445,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
             }
         });
     }
-    private void send_dropoff_notification(String customer_id) {
-        Token token=new Token(customer_id);
-        Notification notification=new Notification("Drop Off",customer_id);
 
-        Sender sender=new Sender(notification,token.getToken());
-        Call<FCMResponse> call=mFCMService.sendMessage(sender);
-        call.enqueue(new Callback<FCMResponse>() {
-            @Override
-            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                if(response.body() !=null)
-                    if(response.body().success!=1){
-                        Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
-                    }else{
-                        Toast.makeText(DriverTracking.this,"Success",Toast.LENGTH_LONG).show();
-                    }
-                Log.e("arrival_notification",response.toString());
-            }
-
-            @Override
-            public void onFailure(Call<FCMResponse> call, Throwable t) {
-                Log.e("fcm_problem",t.toString());
-            }
-        });
-    }
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         displayLocation();

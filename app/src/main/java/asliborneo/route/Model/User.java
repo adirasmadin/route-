@@ -3,6 +3,9 @@ package asliborneo.route.Model;
 public class User {
     private String name;
     private String email;
+    private String password;
+    private String phone;
+    private String rates;
 
     public User(String name, String email, String password, String phone, String rates, String avatarurl) {
         this.name = name;
@@ -13,9 +16,7 @@ public class User {
         this.avatarurl = avatarurl;
     }
 
-    private String password;
-    private String phone;
-    private String rates;
+
 
     public String getRates() {
         return rates;
