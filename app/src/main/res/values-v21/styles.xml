@@ -1,6 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/navigation</item>
@@ -13,22 +13,14 @@
         </item>
         <item name="android:textColorSecondary">@color/buttonPickupRequest
         </item>
+        <item name="android:statusBarColor">@color/common_google_signin_btn_text_light_pressed
+        </item>
     </style>
-
-    <style name="SplashTheme" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@drawable/splash</item>
-    </style>
-
-    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark" />
-
-    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
 
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="colorPrimary">@color/colorPrimaryDark</item>
+        <item name="android:navigationBarColor">@color/common_google_signin_btn_text_light_pressed</item>
     </style>
-
-    <style name="navigationbar" parent="Theme.AppCompat.Light.NoActionBar" />
-
 </resources>

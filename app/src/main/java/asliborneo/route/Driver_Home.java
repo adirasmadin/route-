@@ -38,6 +38,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.facebook.accountkit.Account;
+import com.facebook.accountkit.AccountKit;
+import com.facebook.accountkit.AccountKitCallback;
+import com.facebook.accountkit.AccountKitError;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.github.glomadrian.materialanimatedswitch.MaterialAnimatedSwitch;
@@ -235,10 +239,12 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         CircleImageView avatar= navigation_header_view.findViewById(R.id.avatar);
         TextView name= navigation_header_view.findViewById(R.id.driver_name);
         TextView rating= navigation_header_view.findViewById(R.id.rating);
-        rating.setText(Commons.current_user.getRates());
-        name.setText(Commons.current_user.getName());
-        if (!TextUtils.isEmpty(Commons.current_user.getAvatarurl())){
-            Picasso.with(Driver_Home.this).load(Commons.current_user.getAvatarurl()).into(avatar);
+        if (Commons.current_user !=null) {
+            rating.setText(Commons.current_user.getRates());
+            name.setText(Commons.current_user.getName());
+            if (!TextUtils.isEmpty(Commons.current_user.getAvatarurl())) {
+                Picasso.with(Driver_Home.this).load(Commons.current_user.getAvatarurl()).into(avatar);
+            }
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -258,19 +264,29 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         }
         firebaseStorage=FirebaseStorage.getInstance();
         storageReference=firebaseStorage.getReference();
-        onlineRef= FirebaseDatabase.getInstance().getReference().child(".info/connected");
-        currentUserRef=FirebaseDatabase.getInstance().getReference("Drivers").child(FirebaseAuth.getInstance().getCurrentUser().getUid());
-        onlineRef.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                currentUserRef.onDisconnect().removeValue();
-            }
+     AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+         @Override
+         public void onSuccess(Account account) {
+             onlineRef= FirebaseDatabase.getInstance().getReference().child(".info/connected");
+             currentUserRef=FirebaseDatabase.getInstance().getReference("Drivers").child(account.getId());
+             onlineRef.addValueEventListener(new ValueEventListener() {
+                 @Override
+                 public void onDataChange(DataSnapshot dataSnapshot) {
+                     currentUserRef.onDisconnect().removeValue();
+                 }
 
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
+                 @Override
+                 public void onCancelled(DatabaseError databaseError) {
 
-            }
-        });
+                 }
+             });
+         }
+
+         @Override
+         public void onError(AccountKitError accountKitError) {
+
+         }
+     });
         places = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.placetxt);
         location_switch = findViewById(R.id.location_switch);
@@ -487,10 +503,20 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         }
     }
     private void update_firebase_token() {
-        FirebaseDatabase db=FirebaseDatabase.getInstance();
-        DatabaseReference tokens=db.getReference(Commons.tokenTable);
-        Token token=new Token(FirebaseInstanceId.getInstance().getToken());
-        tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).setValue(token);
+       AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+           @Override
+           public void onSuccess(Account account) {
+               FirebaseDatabase db=FirebaseDatabase.getInstance();
+               DatabaseReference tokens=db.getReference(Commons.tokenTable);
+               Token token=new Token(FirebaseInstanceId.getInstance().getToken());
+               tokens.child(account.getId()).setValue(token);
+           }
+
+           @Override
+           public void onError(AccountKitError accountKitError) {
+
+           }
+       });
     }
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -543,17 +569,27 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 places.setBoundsBias(bounds);
                 places.setFilter(typefilter);
 
-                geofire.setLocation(FirebaseAuth.getInstance().getCurrentUser().getUid(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
-                    @Override
-                    public void onComplete(String key, DatabaseError error) {
-                        if (mCurrent != null) {
-                            mCurrent.remove();
-                        }
-                        mCurrent=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
-                        // rotate_marker(mcurrent, -360, mMap);*/
-                    }
-                });
+              AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                  @Override
+                  public void onSuccess(Account account) {
+                      geofire.setLocation(account.getId(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
+                          @Override
+                          public void onComplete(String key, DatabaseError error) {
+                              if (mCurrent != null) {
+                                  mCurrent.remove();
+                              }
+                              mCurrent=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
+                              mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
+                              // rotate_marker(mcurrent, -360, mMap);*/
+                          }
+                      });
+                  }
+
+                  @Override
+                  public void onError(AccountKitError accountKitError) {
+
+                  }
+              });
             }
         }
         else
@@ -727,23 +763,35 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             public void onClick(DialogInterface dialogInterface, int i) {
                 final AlertDialog waiting_dialog=new SpotsDialog(Driver_Home.this);
                 waiting_dialog.show();
-                Map<String,Object> namephoneupdate=new HashMap<>();
+
                 if(!TextUtils.isEmpty(name.getText().toString())&&!TextUtils.isEmpty(phone.getText().toString())) {
-                    namephoneupdate.put("name", name.getText().toString());
-                    namephoneupdate.put("phone", phone.getText().toString());
-                    DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
-                    driver_information_reference.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).updateChildren(namephoneupdate).addOnCompleteListener(new OnCompleteListener<Void>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Void> task) {
-                            if (task.isSuccessful()) {
-                                waiting_dialog.dismiss();
-                                Toast.makeText(Driver_Home.this,"Name and Phone are updated",Toast.LENGTH_LONG).show();
-                            }else{
-                                waiting_dialog.dismiss();
-                                Toast.makeText(Driver_Home.this,"Update Failed",Toast.LENGTH_LONG).show();
-                            }
-                        }
-                    });
+
+               AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                   @Override
+                   public void onSuccess(Account account) {
+                       Map<String,Object> namephoneupdate=new HashMap<>();
+                       namephoneupdate.put("name", name.getText().toString());
+                       namephoneupdate.put("phone", phone.getText().toString());
+                       DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
+                       driver_information_reference.child(account.getId()).updateChildren(namephoneupdate).addOnCompleteListener(new OnCompleteListener<Void>() {
+                           @Override
+                           public void onComplete(@NonNull Task<Void> task) {
+                               if (task.isSuccessful()) {
+                                   waiting_dialog.dismiss();
+                                   Toast.makeText(Driver_Home.this,"Name and Phone are updated",Toast.LENGTH_LONG).show();
+                               }else{
+                                   waiting_dialog.dismiss();
+                                   Toast.makeText(Driver_Home.this,"Update Failed",Toast.LENGTH_LONG).show();
+                               }
+                           }
+                       });
+                   }
+
+                   @Override
+                   public void onError(AccountKitError accountKitError) {
+
+                   }
+               });
                 }else{
                     Toast.makeText(Driver_Home.this,"Please Provide Required Information",Toast.LENGTH_LONG).show();
                 }
@@ -783,20 +831,30 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                         Toast.makeText(Driver_Home.this,"Uploaded!",Toast.LENGTH_LONG).show();
                         image_folder.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
                             @Override
-                            public void onSuccess(Uri uri) {
-                                Map<String,Object> avatar_update=new HashMap<>();
-                                avatar_update.put("avatarurl",uri.toString());
-                                DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
-                                driver_information_reference.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).updateChildren(avatar_update).addOnCompleteListener(new OnCompleteListener<Void>() {
-                                    @Override
-                                    public void onComplete(@NonNull Task<Void> task) {
-                                        if (task.isSuccessful()) {
-                                            Toast.makeText(Driver_Home.this,"Uploaded!",Toast.LENGTH_LONG).show();
-                                        }else{
-                                            Toast.makeText(Driver_Home.this,"Upload Failed",Toast.LENGTH_LONG).show();
-                                        }
-                                    }
-                                });
+                            public void onSuccess(final Uri uri) {
+                              AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                                  @Override
+                                  public void onSuccess(Account account) {
+                                      Map<String,Object> avatar_update=new HashMap<>();
+                                      avatar_update.put("avatarurl",uri.toString());
+                                      DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
+                                      driver_information_reference.child(account.getId()).updateChildren(avatar_update).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                          @Override
+                                          public void onComplete(@NonNull Task<Void> task) {
+                                              if (task.isSuccessful()) {
+                                                  Toast.makeText(Driver_Home.this,"Uploaded!",Toast.LENGTH_LONG).show();
+                                              }else{
+                                                  Toast.makeText(Driver_Home.this,"Upload Failed",Toast.LENGTH_LONG).show();
+                                              }
+                                          }
+                                      });
+                                  }
+
+                                  @Override
+                                  public void onError(AccountKitError accountKitError) {
+
+                                  }
+                              });
                             }
                         });
                     }
@@ -841,21 +899,31 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                                     @Override
                                     public void onComplete(@NonNull Task<Void> task) {
                                         if(task.isSuccessful()){
-                                            Map<String,Object> password=new HashMap<>();
-                                            password.put("password",repeat_new_password.getText().toString());
-                                            DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
-                                            driver_information_reference.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).updateChildren(password).addOnCompleteListener(new OnCompleteListener<Void>() {
-                                                @Override
-                                                public void onComplete(@NonNull Task<Void> task) {
-                                                    if (task.isSuccessful()){
-                                                        waiting_dialog.dismiss();
-                                                        Toast.makeText(Driver_Home.this,"Password has changed",Toast.LENGTH_LONG).show();
-                                                    }else{
-                                                        waiting_dialog.dismiss();
-                                                        Toast.makeText(Driver_Home.this,"Password was cchanged but not updated in Database",Toast.LENGTH_LONG).show();
-                                                    }
-                                                }
-                                            });
+                                           AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                                               @Override
+                                               public void onSuccess(Account account) {
+                                                   Map<String,Object> password=new HashMap<>();
+                                                   password.put("password",repeat_new_password.getText().toString());
+                                                   DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
+                                                   driver_information_reference.child(account.getId()).updateChildren(password).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                                       @Override
+                                                       public void onComplete(@NonNull Task<Void> task) {
+                                                           if (task.isSuccessful()){
+                                                               waiting_dialog.dismiss();
+                                                               Toast.makeText(Driver_Home.this,"Password has changed",Toast.LENGTH_LONG).show();
+                                                           }else{
+                                                               waiting_dialog.dismiss();
+                                                               Toast.makeText(Driver_Home.this,"Password was cchanged but not updated in Database",Toast.LENGTH_LONG).show();
+                                                           }
+                                                       }
+                                                   });
+                                               }
+
+                                               @Override
+                                               public void onError(AccountKitError accountKitError) {
+
+                                               }
+                                           });
 
                                         }else{
                                             waiting_dialog.dismiss();
@@ -890,12 +958,28 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     }
 
     private void Sign_Out() {
-        Paper.init(this);
-        Paper.book().destroy();
-        FirebaseAuth.getInstance().signOut();
-        Intent intent=new Intent(Driver_Home.this,MainActivity.class);
-        startActivity(intent);
-        finish();
+        AlertDialog.Builder builder;
+        if (Build.VERSION.SDK_INT >=Build.VERSION_CODES.LOLLIPOP)
+            builder = new AlertDialog.Builder(this,android.R.style.Theme_Material_Dialog_Alert);
 
+        else
+            builder = new AlertDialog.Builder(this);
+
+        builder.setMessage("Are you sure ?")
+                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        AccountKit.logOut();
+                        Intent intent = new Intent(Driver_Home.this,MainActivity.class);
+                        startActivity(intent);
+                        finish();
+                    }
+                }).setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
+        });
+        builder.show();
     }
 }

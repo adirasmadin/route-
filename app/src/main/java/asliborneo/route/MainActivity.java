@@ -1,14 +1,42 @@
 package asliborneo.route;
 
+import com.facebook.accountkit.internal.Utility;
+import com.google.i18n.phonenumbers.AlternateFormatsCountryCodeSet;
+import com.google.i18n.phonenumbers.MetadataLoader;
+import com.google.i18n.phonenumbers.NumberParseException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+import android.util.Base64;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -16,6 +44,15 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.facebook.accountkit.Account;
+import com.facebook.accountkit.AccountKit;
+import com.facebook.accountkit.AccountKitCallback;
+import com.facebook.accountkit.AccountKitError;
+import com.facebook.accountkit.AccountKitLoginResult;
+
+import com.facebook.accountkit.ui.AccountKitActivity;
+import com.facebook.accountkit.ui.AccountKitConfiguration;
+import com.facebook.accountkit.ui.LoginType;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -27,23 +64,37 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.facebook.accountkit.AccountKit;
+import com.facebook.accountkit.ui.AccountKitActivity;
+import com.facebook.accountkit.ui.AccountKitConfiguration;
+import com.facebook.accountkit.ui.LoginType;
+
 import com.rengwuxian.materialedittext.MaterialEditText;
 
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 import asliborneo.route.Model.User;
-import dmax.dialog.SpotsDialog;
-import io.paperdb.Paper;
+
 import uk.co.chrisjenx.calligraphy.CalligraphyConfig;
 import uk.co.chrisjenx.calligraphy.CalligraphyContextWrapper;
 
+import static android.content.pm.PackageManager.*;
+
 public class MainActivity extends AppCompatActivity {
-    Button btnSignin,btnRegister;
+    private static final int REQUEST_CODE = 11;
+    Button btnContinue;
     FirebaseAuth auth;
     FirebaseDatabase db;
     DatabaseReference users;
-    MaterialEditText email,password,name,phone;
+    MaterialEditText email, password, name, phone;
     RelativeLayout rootlayout;
 
-    TextView txt_forgot_password;
+    static String extractNumer;
+
+    TextView txt_forgot_password, txtRegister, txtSignin;
+
     @Override
     protected void attachBaseContext(Context newBase) {
         super.attachBaseContext(CalligraphyContextWrapper.wrap(newBase));
@@ -52,238 +103,263 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        CalligraphyConfig.initDefault(new CalligraphyConfig.Builder().setDefaultFontPath("fonts/Antaro.ttf").setFontAttrId(R.attr.fontPath).build());
+        CalligraphyConfig.initDefault(new CalligraphyConfig.Builder().setDefaultFontPath("fonts/font.ttf").setFontAttrId(R.attr.fontPath).build());
         setContentView(R.layout.activity_main);
-        auth=FirebaseAuth.getInstance();
-        db=FirebaseDatabase.getInstance();
-        users=db.getReference(Commons.Registered_driver);
-        Commons.current_user=new User();
-        txt_forgot_password= findViewById(R.id.txt_forgot_password);
-        txt_forgot_password.setOnClickListener(new View.OnClickListener() {
+        auth = FirebaseAuth.getInstance();
+        db = FirebaseDatabase.getInstance();
+        users = db.getReference(Commons.Registered_driver);
+        Commons.current_user = new User();
+
+        btnContinue = findViewById(R.id.btnContinue);
+
+        PhoneNumberUtils.extractNetworkPortion(extractNumer);
+
+        printKeyHash();
+        btnContinue.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                show_forgot_password_dialog();
+            public void onClick(View v) {
+
+                phoneLogin();
             }
         });
-        btnSignin= findViewById(R.id.btnSignin);
-        btnRegister= findViewById(R.id.btnRegister);
-        rootlayout= findViewById(R.id.rootlayout);
-        Paper.init(this);
-        btnRegister.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                show_register_dialog();
+
+        if (AccountKit.getCurrentAccessToken() != null) {
+            AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                @Override
+                public void onSuccess(Account account) {
+                    users.child(account.getPhoneNumber().toString())
+                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                    startActivity(homeIntent);
+                                    finish();
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                }
+                            });
+                }
+
+                @Override
+                public void onError(AccountKitError accountKitError) {
+
+                }
+            });
+        }
+
+
+    }
+
+    public void phoneLogin() {
+        final Intent intent = new Intent(MainActivity.this, AccountKitActivity.class);
+        AccountKitConfiguration.AccountKitConfigurationBuilder configurationBuilder =
+                new AccountKitConfiguration.AccountKitConfigurationBuilder(
+                        LoginType.PHONE,
+                        AccountKitActivity.ResponseType.TOKEN); // or .ResponseType.TOKEN
+        // ... perform additional configuration ...
+        intent.putExtra(
+                AccountKitActivity.ACCOUNT_KIT_ACTIVITY_CONFIGURATION,
+                configurationBuilder.build());
+        startActivityForResult(intent, REQUEST_CODE);
+    }
+    private void printKeyHash() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo("asliborneo.route",
+                    GET_SIGNATURES);
+
+            for (Signature signature : info.signatures) {
+                MessageDigest md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+                Log.d("KEYHASH", Base64.encodeToString(md.digest(), Base64.DEFAULT));
             }
-        });
-        btnSignin.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                show_login_dialog();
+        } catch (NameNotFoundException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+
+
+        if (AccountKit.getCurrentAccessToken() != null) {
+            AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                @Override
+                public void onSuccess(Account account) {
+
+
+                    users.child(account.getPhoneNumber().toString())
+                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                    startActivity(homeIntent);
+                                    finish();
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                }
+                            });
+                }
+
+
+                @Override
+                public void onError(AccountKitError accountKitError) {
+
+                }
+            });
+        }
+    }
+
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE) { // confirm that this response matches your request
+            AccountKitLoginResult loginResult = data.getParcelableExtra(AccountKitLoginResult.RESULT_KEY);
+            String toastMessage;
+            if (loginResult.getError() != null) {
+                toastMessage = loginResult.getError().getErrorType().getMessage();
+                showErrorActivity(loginResult.getError());
+            } else if (loginResult.wasCancelled()) {
+                toastMessage = "Login Cancelled";
+            } else {
+                if (loginResult.getAccessToken() != null) {
+                    toastMessage = "Success:" + loginResult.getAccessToken().getAccountId();
+                } else {
+                    toastMessage = String.format(
+                            "Success:%s...",
+                            loginResult.getAuthorizationCode().substring(0, 10));
+                }
+
+
+                goToMyLoggedInActivity();
             }
-        });
-        String username=Paper.book().read(Commons.user_field);
-        String password=Paper.book().read(Commons.password_field);
-        if(username!=null&&password!=null){
-            if(!TextUtils.isEmpty(username)&&!TextUtils.isEmpty(password)){
-                auto_login(username,password);
+
+            // Surface the result to your user in an appropriate way.
+            Toast.makeText(
+                    this,
+                    toastMessage,
+                    Toast.LENGTH_LONG)
+                    .show();
+            if (requestCode == REQUEST_CODE) {
+                AccountKitLoginResult result = data.getParcelableExtra(AccountKitLoginResult.RESULT_KEY);
+                if (result.getError() != null) {
+                    Toast.makeText(this, "" + result.getError().getErrorType().getMessage(), Toast.LENGTH_LONG).show();
+
+                } else if (result.wasCancelled()) {
+                    Toast.makeText(this, "Cancel login", Toast.LENGTH_LONG).show();
+                } else {
+                    if (result.getAccessToken() != null) {
+                        AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                            @Override
+                            public void onSuccess(final Account account) {
+                                final String userPhone = account.getId();
+
+
+                                users.orderByKey().equalTo(userPhone)
+                                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                                            @Override
+                                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                                if (!dataSnapshot.child(userPhone).exists()) {
+                                                    User user = new User();
+                                                    user.setPhone(account.getPhoneNumber().toString());
+                                                    user.setName(account.getPhoneNumber().toString());
+                                                    user.setAvatarurl("");
+                                                    user.setRates("0.0");
+
+                                                    users.child(userPhone)
+                                                            .setValue(user)
+                                                            .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                                                @Override
+                                                                public void onSuccess(Void aVoid) {
+
+                                                                    users.child(userPhone)
+                                                                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                                                                @Override
+                                                                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                                                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                                                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                                                                    startActivity(homeIntent);
+                                                                                    finish();
+                                                                                }
+
+                                                                                @Override
+                                                                                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                                                                }
+                                                                            });
+                                                                }
+
+
+                                                            }).addOnFailureListener(new OnFailureListener() {
+                                                        @Override
+                                                        public void onFailure(@NonNull Exception e) {
+                                                            Toast.makeText(MainActivity.this, "" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                                        }
+                                                    });
+                                                } else {
+                                                    users.child(userPhone)
+                                                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                                                @Override
+                                                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                                                    startActivity(homeIntent);
+                                                                    finish();
+                                                                }
+
+                                                                @Override
+                                                                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                                                }
+                                                            });
+                                                }
+
+
+                                            }
+
+                                            @Override
+                                            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                            }
+                                        });
+                            }//else
+
+                            @Override
+                            public void onError(AccountKitError accountKitError) {
+                                Toast.makeText(MainActivity.this, "" + accountKitError.getErrorType().getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }
             }
         }
     }
 
-    private void auto_login(String username, String password) {
-        final android.app.AlertDialog waitingdialog=new SpotsDialog(MainActivity.this);
-        waitingdialog.show();
-        auth.signInWithEmailAndPassword(username,password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-            @Override
-            public void onComplete(@NonNull Task<AuthResult> task) {
-                if(task.isSuccessful()){
-                    FirebaseDatabase.getInstance().getReference(Commons.Registered_driver).child(FirebaseAuth.getInstance().getCurrentUser().getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(DataSnapshot dataSnapshot) {
-                            Commons.current_user=dataSnapshot.getValue(User.class);
-                            waitingdialog.dismiss();
-                            Toast.makeText(MainActivity.this,"Login Sucess",Toast.LENGTH_LONG).show();
-                            startActivity(new Intent(MainActivity.this,Driver_Home.class));
-                            finish();
-                        }
-
-                        @Override
-                        public void onCancelled(DatabaseError databaseError) {
-
-                        }
-                    });
-
-                }
-            }
-        }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                waitingdialog.dismiss();
-                Toast.makeText(MainActivity.this,"Login failed "+e.getMessage(),Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-
-    private void show_forgot_password_dialog(){
-        AlertDialog.Builder forgot_password_dialog=new AlertDialog.Builder(MainActivity.this);
-        forgot_password_dialog .setTitle("Forgot Password");
-        forgot_password_dialog .setMessage("Please Enter Your Email");
-        LayoutInflater inflater=LayoutInflater.from(MainActivity.this);
-        View v=inflater.inflate(R.layout.forgot_password_layout,null);
-        forgot_password_dialog.setView(v);
-        final MaterialEditText emailtxt= v.findViewById(R.id.emailtxt);
-        forgot_password_dialog .setPositiveButton("Reset", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(final DialogInterface dialogInterface, int i) {
-                final android.app.AlertDialog waiting_dialog=new SpotsDialog(MainActivity.this);
-                waiting_dialog.show();
-                if(!TextUtils.isEmpty(emailtxt.getText().toString())) {
-                    auth.sendPasswordResetEmail(emailtxt.getText().toString()).addOnCompleteListener(new OnCompleteListener<Void>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Void> task) {
-                            dialogInterface.dismiss();
-                            waiting_dialog.dismiss();
-                            Snackbar.make(rootlayout, "Reset Link is Sent to Your Email", Snackbar.LENGTH_LONG).show();
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            dialogInterface.dismiss();
-                            waiting_dialog.dismiss();
-                            Snackbar.make(rootlayout, e.getMessage(), Snackbar.LENGTH_LONG).show();
-                        }
-                    });
-                }else{
-                    waiting_dialog.dismiss();
-                    Snackbar.make(rootlayout,"Please Enter Email",Snackbar.LENGTH_LONG).show();
-                }
-            }
-        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-            }
-        }).show();
-    }
-
-    private void show_register_dialog(){
-        final AlertDialog.Builder register_dialog=new AlertDialog.Builder(MainActivity.this);
-        register_dialog.setTitle("Register");
-        register_dialog.setMessage("Use Email to Register");
-        final View v=LayoutInflater.from(MainActivity.this).inflate(R.layout.layout_register,null);
-        email= v.findViewById(R.id.emailtxt);
-        password= v.findViewById(R.id.passwordtxt);
-        name= v.findViewById(R.id.nametxt);
-        phone= v.findViewById(R.id.phone);
-        register_dialog.setView(v);
-        register_dialog.setPositiveButton("Register", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                if(TextUtils.isEmpty(email.getText().toString())){
-                    Toast.makeText(MainActivity.this,"Please Enter Email",Toast.LENGTH_LONG).show();
-                }else if (TextUtils.isEmpty(password.getText().toString())){
-                    Toast.makeText(MainActivity.this,"Please Enter Password",Toast.LENGTH_LONG).show();
-                }else if (password.getText().toString().length() < 6){
-                    Toast.makeText(MainActivity.this,"Password too short",Toast.LENGTH_LONG).show();
-                }else if (TextUtils.isEmpty(phone.getText().toString())){
-                    Toast.makeText(MainActivity.this,"Please Enter Phone",Toast.LENGTH_LONG).show();
-                }else if (TextUtils.isEmpty(name.getText().toString())){
-                    Toast.makeText(MainActivity.this,"Please Enter Name",Toast.LENGTH_LONG).show();
-                }else{
-                    auth.createUserWithEmailAndPassword(email.getText().toString(),password.getText().toString()).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                        @Override
-                        public void onComplete(@NonNull Task<AuthResult> task) {
-                            if(task.isSuccessful()){
-                                User user=new User();
-                                user.setName(name.getText().toString());
-                                user.setPassword(password.getText().toString());
-                                user.setPhone(phone.getText().toString());
-                                user.setEmail(email.getText().toString());
-                                users.child(FirebaseAuth.getInstance().getCurrentUser().getUid()).setValue(user).addOnSuccessListener(new OnSuccessListener<Void>() {
-                                    @Override
-                                    public void onSuccess(Void aVoid) {
-                                        Toast.makeText(MainActivity.this,"Registration Sucess",Toast.LENGTH_LONG).show();
-                                    }
-                                });
-                            }
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            Toast.makeText(MainActivity.this,"Registration failed "+e.getMessage(),Toast.LENGTH_LONG).show();
-                        }
-                    });
-                }
-            }
-        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-            }
-        }).show();
+    private void goToMyLoggedInActivity() {
+        Intent intent = new Intent(MainActivity.this,Driver_Home.class);
+        startActivity(intent);
+        finish();
 
     }
 
+    private void showErrorActivity(AccountKitError error) {
 
-    private void show_login_dialog(){
-        AlertDialog.Builder login_dialog=new AlertDialog.Builder(MainActivity.this);
-        login_dialog.setTitle("Sign In");
-        login_dialog.setMessage("Use Email to Sign In");
-        View v=LayoutInflater.from(MainActivity.this).inflate(R.layout.layout_login,null);
-        email= v.findViewById(R.id.emailtxt);
-        password= v.findViewById(R.id.passwordtxt);
-        login_dialog.setPositiveButton("Sign In", new DialogInterface.OnClickListener() {
-
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                if(TextUtils.isEmpty(email.getText().toString())){
-                    Toast.makeText(MainActivity.this,"Please Enter Email",Toast.LENGTH_LONG).show();
-                }else if (TextUtils.isEmpty(password.getText().toString())){
-                    Toast.makeText(MainActivity.this,"Please Enter Password",Toast.LENGTH_LONG).show();
-                }else if (password.getText().toString().length() < 6){
-                    Toast.makeText(MainActivity.this,"Password too short",Toast.LENGTH_LONG).show();
-                }else{
-                    final android.app.AlertDialog waitingdialog=new SpotsDialog(MainActivity.this);
-                    waitingdialog.show();
-                    auth.signInWithEmailAndPassword(email.getText().toString(),password.getText().toString()).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                        @Override
-                        public void onComplete(@NonNull Task<AuthResult> task) {
-                            if(task.isSuccessful()){
-                                FirebaseDatabase.getInstance().getReference(Commons.Registered_driver).child(FirebaseAuth.getInstance().getCurrentUser().getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-                                    @Override
-                                    public void onDataChange(DataSnapshot dataSnapshot) {
-                                        Paper.book().write(Commons.user_field,email.getText().toString());
-                                        Paper.book().write(Commons.password_field,password.getText().toString());
-                                        Commons.current_user=dataSnapshot.getValue(User.class);
-                                        waitingdialog.dismiss();
-                                        Toast.makeText(MainActivity.this,"Login Sucess",Toast.LENGTH_LONG).show();
-                                        startActivity(new Intent(MainActivity.this,Driver_Home.class));
-                                        finish();
-                                    }
-
-                                    @Override
-                                    public void onCancelled(DatabaseError databaseError) {
-
-                                    }
-                                });
-
-                            }
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-                            waitingdialog.dismiss();
-                            Toast.makeText(MainActivity.this,"Login failed "+e.getMessage(),Toast.LENGTH_LONG).show();
-                        }
-                    });
-                }
-            }
-        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-            }
-        }).setView(v).show();
     }
 }
+
+
+
+
+
+
+
+
+

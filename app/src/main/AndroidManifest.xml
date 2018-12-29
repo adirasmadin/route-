@@ -19,7 +19,16 @@
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
+        <meta-data android:name="com.facebook.accountkit.ApplicationName"
+            android:value="@string/app_name" />
+        <meta-data android:name="com.facebook.sdk.ApplicationId"
+            android:value="@string/FACEBOOK_APP_ID" />
+        <meta-data android:name="com.facebook.accountkit.ClientToken"
+            android:value="@string/ACCOUNT_KIT_CLIENT_TOKEN" />
 
+        <activity
+            android:name="com.facebook.accountkit.ui.AccountKitActivity"
+           />
         <activity
             android:name=".Splash"
             android:theme="@style/SplashTheme">

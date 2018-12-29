@@ -14,7 +14,7 @@
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="155dp"
-        android:src="@drawable/map"
+        android:src="@drawable/icon"
        />
 
 
@@ -76,7 +76,7 @@
             android:id="@+id/accept_btn"
             android:layout_weight="1"
             android:layout_marginRight="6dp"
-            android:background="@android:color/darker_gray"
+            android:background="@android:color/transparent"
             android:textColor="@android:color/black"
             android:layout_marginBottom="16dp"
             android:text="@string/Accept"
@@ -87,7 +87,7 @@
             android:id="@+id/cancel_btn"
             android:layout_weight="1"
             android:layout_marginLeft="6dp"
-            android:background="@android:color/darker_gray"
+            android:background="@android:color/transparent"
             android:textColor="@android:color/black"
             android:layout_marginBottom="16dp"
             android:text="@string/Cancel"

@@ -1,10 +1,10 @@
 <resources>
     <string name="app_name">route</string>
     <string name="default_notification_channel_id">0</string>
-    <string name="map_server_api">AIzaSyBQKBeP6mQnsFwYC7BWVJa9_igw6XNWj7E</string>
-    <string name="title_activity_driver__home">Driver_Home</string>
+    <string name="map_server_api">AIzaSyDJDVkOaSyuUaBFAp7OyZ5mnXJrEzEM55I</string>
+    <string name="title_activity_driver__home">Navigation Home</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="google_direction_api">AIzaSyAxh5q4g1xyvvYaDSChIhlweqfAt8o8udA</string>
+    <string name="google_direction_api">AIzaSyDJDVkOaSyuUaBFAp7OyZ5mnXJrEzEM55I</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="nav_header_title">Android Studio</string>
     <string name="nav_header_subtitle">android.studio@android.com</string>
@@ -22,4 +22,6 @@
     <string name="msg_token_fmt">token</string>
     <string name="Cancel">Cancel</string>
     <string name="Accept">Accept</string>
+    <string name="FACEBOOK_APP_ID">1232083650264469</string>
+    <string name="ACCOUNT_KIT_CLIENT_TOKEN">ca82e10846c4721f4c4bbac3e75e6a48</string>
 </resources>
