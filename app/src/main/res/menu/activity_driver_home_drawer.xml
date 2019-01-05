@@ -4,28 +4,19 @@
     tools:showIn="navigation_view">
 
     <group android:checkableBehavior="single">
+
         <item
-            android:id="@+id/nav_Trip_history"
-            android:title="Trip History"/>
-        <item
-            android:id="@+id/nav_way_bill"
-            android:title="Waybill"/>
-        <item
-            android:id="@+id/nav_help"
-            android:title="Help"/>
-        <item
-            android:id="@+id/nav_setting"
-            android:title="Setting"/>
+            android:id="@+id/nav_update_cartype"
+            android:title="UPDATE VEHICLE TYPE"/>
+
         <item
             android:id="@+id/nav_update_profile"
-            android:title="Update Profile"/>
+            android:title="UPDATE PROFILE"/>
 
         <item
             android:id="@+id/nav_signout"
             android:title="Sign Out"/>
-        <item
-            android:id="@+id/nav_change_password"
-            android:title="Change Password"/>
+
     </group>
 
 

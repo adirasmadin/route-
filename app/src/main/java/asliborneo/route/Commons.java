@@ -2,7 +2,7 @@ package asliborneo.route;
 
 import android.location.Location;
 
-import asliborneo.route.Model.User;
+import asliborneo.route.Model.RouteDriver;
 
 public class Commons {
     public static Location mLastLocation;
@@ -15,8 +15,8 @@ public class Commons {
     public static double base_fare=2.50;
     private static double time_rate=0.25;
     private static double distance_rate=0.50;
-    public static User current_user=null;
-    public static final java.lang.String user_field="usr";
+    public static RouteDriver current_routeDriver =null;
+    public static final String user_field="usr";
     public static final String password_field="pwd";
     public static final String googleAPIUrl ="https://maps.googleapis.com";
     public static String fcmURL = "https://fcm.googleapis.com/";
@@ -33,7 +33,8 @@ public class Commons {
         return FCMClient.getClient(fcmURL).create(FCMService.class);
     }
 
-    public static IGoogleAPI getGoogleAPI()
+
+ IGoogleAPI getGoogleAPI()
     {
         return RetrofitClient.getClient(fcmURL).create(IGoogleAPI.class);
     }

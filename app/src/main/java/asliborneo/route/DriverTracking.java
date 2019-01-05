@@ -19,6 +19,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.facebook.accountkit.Account;
+import com.facebook.accountkit.AccountKit;
+import com.facebook.accountkit.AccountKitCallback;
+import com.facebook.accountkit.AccountKitError;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
@@ -43,8 +47,11 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.InstanceIdResult;
@@ -55,16 +62,15 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import asliborneo.route.Model.Notification;
-import asliborneo.route.Model.Token;
+import asliborneo.route.Model.DataMessage;
 import asliborneo.route.Model.FCMResponse;
-import asliborneo.route.Model.Sender;
+import asliborneo.route.Model.RouteDriver;
+import asliborneo.route.Model.Token;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-
-import static asliborneo.route.Commons.fcmURL;
 
 
 public class DriverTracking extends FragmentActivity implements OnMapReadyCallback,GoogleApiClient.OnConnectionFailedListener,GoogleApiClient.ConnectionCallbacks,LocationListener,GoogleMap.OnMyLocationClickListener,GoogleMap.OnMyLocationButtonClickListener {
@@ -72,12 +78,12 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     private  static final int PLAY_SERVICE_RESOLUTION_REQUEST = 7001;
 
     private static GoogleMap mMap;
-    double riderLat,riderLng;
+    String riderLat,riderLng;
     LocationRequest mLocationRequest;
     GoogleApiClient mGoogleapiClient;
     private Circle rider_marker;
     private Marker driver_marker;
-   private Polyline direction;
+    private Polyline direction;
     GeoFire geoFire;
     Button start_trip_btn;
     Location pick_up_location;
@@ -106,8 +112,8 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         mapFragment.getMapAsync(this);
         start_trip_btn= findViewById(R.id.start_trip);
         if (getIntent()!=null){
-            riderLat=getIntent().getDoubleExtra("lat",-1.0);
-            riderLng=getIntent().getDoubleExtra("lng",-1.0);
+            riderLat=getIntent().getStringExtra("lat");
+            riderLng=getIntent().getStringExtra("lng");
             customer_id = getIntent().getStringExtra("customer");
         }
 
@@ -146,13 +152,46 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                 }
             }
         });
-        // geoFire=new GeoFire();
+
         enableMyLocation();
 
 
         setupLocation();
-    }
 
+        DatabaseReference drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
+        geoFire = new GeoFire(drivers);
+        UpdateserverToken();
+    }
+    private void UpdateserverToken() {
+        FirebaseDatabase db = FirebaseDatabase.getInstance();
+        final DatabaseReference tokens = db.getReference("Tokens");
+
+
+        AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+            @Override
+            public void onSuccess(final Account account) {
+                FirebaseInstanceId.getInstance().getInstanceId().addOnSuccessListener(new OnSuccessListener<InstanceIdResult>() {
+                    @Override
+                    public void onSuccess(InstanceIdResult instanceIdResult) {
+                        Token token = new Token(instanceIdResult.getToken());
+                        tokens.child(account.getId())
+                                .setValue(token);
+                    }
+                }).addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e("ERROR TOKEN", e.getMessage());
+                        Toast.makeText(DriverTracking.this,""+e.getMessage(),Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(AccountKitError accountKitError) {
+                Log.d("ERROR ACCOUNTKIT", accountKitError.getUserFacingMessage());
+            }
+        });
+    }
     private boolean checkPlayServices()
     {
         int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
@@ -173,36 +212,42 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
     private void setupLocation() {
 
 
-            if (checkPlayServices()) {
-                buildGoogleApiClient();
-                createLocationRequest();
+        if (checkPlayServices()) {
+            buildGoogleApiClient();
+            createLocationRequest();
 
-                    displayLocation();
-            }
+            displayLocation();
         }
+    }
 
     private void send_dropoff_notification(String customer_id) {
         Token token=new Token(customer_id);
-        Notification notification=new Notification("Drop Off",customer_id);
+//        Notification notification=new Notification("Drop Off",customer_id);
+//
+//        Sender sender=new Sender(notification,token.getToken());
 
-        Sender sender=new Sender(notification,token.getToken());
-        mFCMService.sendMessage(sender)
-        .enqueue(new Callback<FCMResponse>() {
-            @Override
-            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                if(response.body() !=null)
-                    if(response.body().success!=1){
-                        Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
+        Map<String ,String > content = new HashMap<>();
+        content.put("title","Drop Off");
+        content.put("message",customer_id);
+        DataMessage dataMessage = new DataMessage(token.getToken(),content);
+        mFCMService.sendMessage(dataMessage)
+                .enqueue(new Callback<FCMResponse>() {
+                    @Override
+                    public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                        if(response.body() !=null)
+                            if(response.body().success!=1){
+                                Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
+                            }
+
                     }
 
-            }
-
-            @Override
-            public void onFailure(Call<FCMResponse> call, Throwable t) {
-                Log.e("fcm_problem",t.toString());
-            }
-        });
+                    @Override
+                    public void onFailure(Call<FCMResponse> call, Throwable t) {
+                        Log.e("fcm_problem",t.toString());
+                    }
+                });
     }
+
     private void calculateCashFee(final Location pickupLocation, Location mLastLocation) {
 
 
@@ -223,7 +268,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                 public void onResponse(Call<String> call, Response<String> response) {
                     try {
 
-                        JSONObject jsonObject = new JSONObject((response.body().toString()));
+                        JSONObject jsonObject = new JSONObject(response.body());
                         JSONArray routes = jsonObject.getJSONArray("routes");
 
                         JSONObject object = routes.getJSONObject(0);
@@ -270,14 +315,14 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         }
     }
     private void stop_location_updates() {
-        if (ActivityCompat.checkSelfPermission(DriverTracking.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(DriverTracking.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         // locationManager.removeUpdates(this);
         LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleapiClient,this);
     }
     private void displayLocation() {
-        if (ActivityCompat.checkSelfPermission(DriverTracking.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(DriverTracking.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         Commons.mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleapiClient);
@@ -297,7 +342,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
 
     private void getDirection() {
-       LatLng currentPosition = new LatLng(Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude());
+        LatLng currentPosition = new LatLng(Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude());
         String requestApi = null;
 
         requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
@@ -314,7 +359,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
                 try {
 
-                new ParserTask().execute(response.body().toString());
+                    new ParserTask().execute(response.body().toString());
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -345,7 +390,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         mGoogleapiClient.connect();
     }
     private void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(DriverTracking.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(DriverTracking.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiClient,mLocationRequest,this);
@@ -356,8 +401,7 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             // Permission to access the location is missing.
-            PermissionUtils.requestPermission(this, LOCATION_PERMISSION_REQUEST_CODE,
-                    Manifest.permission.ACCESS_FINE_LOCATION, true);
+
         } else if (mMap != null) {
             // Access to the location has been granted to the app.
             mMap.setMyLocationEnabled(true);
@@ -371,6 +415,11 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
         mMap.setOnMyLocationButtonClickListener(this);
         mMap.setOnMyLocationClickListener(this);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setZoomGesturesEnabled(true);
+        mMap.setTrafficEnabled(true);
+        mMap.setIndoorEnabled(true);
+        mMap.setBuildingsEnabled(true);
         try {
             boolean issucess = mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(DriverTracking.this, R.raw.uber_style_map));
             if (!issucess)
@@ -379,19 +428,19 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
 
 
         rider_marker=mMap.addCircle(new CircleOptions()
-                .center(new LatLng(riderLat,riderLng))
+                .center(new LatLng(Double.parseDouble(riderLat),Double.parseDouble(riderLng)))
                 .radius(50)
                 .strokeColor(Color.TRANSPARENT).fillColor(0x220000FF)
                 .strokeWidth(5.0f));
-        destination_location_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(riderLat,riderLng)).title("PickUp Here").icon(BitmapDescriptorFactory.fromResource(R.drawable.pin)));
-        geoFire=new GeoFire(FirebaseDatabase.getInstance().getReference("Drivers"));
-        GeoQuery geoQuery=geoFire.queryAtLocation(new GeoLocation(riderLat,riderLng),0.05f);
+        destination_location_marker=mMap.addMarker(new MarkerOptions().position(new LatLng(Double.parseDouble(riderLat),Double.parseDouble(riderLng))).title("PickUp Here").icon(BitmapDescriptorFactory.fromResource(R.drawable.des)));
+        geoFire=new GeoFire(FirebaseDatabase.getInstance().getReference(Commons.driver_location));
+        GeoQuery geoQuery=geoFire.queryAtLocation(new GeoLocation(Double.parseDouble(riderLat),Double.parseDouble(riderLng)),0.05f);
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
             @Override
             public void onKeyEntered(String key, GeoLocation location) {
                 send_arrived_notification(getIntent().getStringExtra("customer"));
                 start_trip_btn.setEnabled(true);
-                getIntent();
+            getIntent();
                 getDirection();
 
             }
@@ -420,30 +469,36 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         });
     }
 
-    private void send_arrived_notification(String customer_id) {
-        Token token=new Token(customer_id);
-        Notification notification=new Notification(String.format("Arrived"),"Driver has arrived");
+    private void send_arrived_notification(String customer ) {
+        Token token=new Token(customer);
+//        Notification notification=new Notification(String.format("Arrived Notification"),"Hello there, i'm at somewhere near your location");
+//
+//        Sender sender=new Sender(notification,token.getToken());
+        Map<String,String> content = new HashMap<>();
+        content.put("title","Arrived Notification");
 
-        Sender sender=new Sender(notification,token.getToken());
-        mFCMService=FCMClient.getClient(fcmURL).create(FCMService.class);
-        mFCMService.sendMessage(sender)
-        .enqueue(new Callback<FCMResponse>() {
-            @Override
-            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                if(response.body() !=null)
-                    if(response.body().success!=1){
-                        Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
-                    }else{
-                        Toast.makeText(DriverTracking.this,"Success",Toast.LENGTH_LONG).show();
+        content.put("message", "Hello there, I'm somewhere near your location");
+        DataMessage dataMessage = new DataMessage(token.getToken(),content);
+
+
+        mFCMService.sendMessage(dataMessage)
+                .enqueue(new Callback<FCMResponse>() {
+                    @Override
+                    public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                        if(response.body() !=null)
+                            if(response.body().success!=1){
+                                Toast.makeText(DriverTracking.this,"Failed",Toast.LENGTH_LONG).show();
+                            }else{
+                                Toast.makeText(DriverTracking.this,"Success",Toast.LENGTH_LONG).show();
+                            }
+                        Log.e("arrival_notification",response.toString());
                     }
-                Log.e("arrival_notification",response.toString());
-            }
 
-            @Override
-            public void onFailure(Call<FCMResponse> call, Throwable t) {
-                Log.e("fcm_problem",t.toString());
-            }
-        });
+                    @Override
+                    public void onFailure(Call<FCMResponse> call, Throwable t) {
+                        Log.e("fcm_problem",t.toString());
+                    }
+                });
     }
 
     @Override
@@ -487,68 +542,66 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            mDialog.setMessage("please wait...");
-            mDialog.show();
+
         }
 
         @Override
-            protected List<List<HashMap<String,String>>> doInBackground(String... strings) {
+        protected List<List<HashMap<String,String>>> doInBackground(String... strings) {
 
-                JSONObject jObject;
-                List<List<HashMap<String, String>>> routes = null;
+            JSONObject jObject;
+            List<List<HashMap<String, String>>> routes = null;
 
-                try {
-                    jObject = new JSONObject(strings[0]);
-                    DirectionJSONParser parser = new DirectionJSONParser();
+            try {
+                jObject = new JSONObject(strings[0]);
+                DirectionJSONParser parser = new DirectionJSONParser();
 
-                    routes = parser.parse(jObject);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                return routes;
+                routes = parser.parse(jObject);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-
-            @Override
-            protected void onPostExecute(List<List<HashMap<String,String>>> lists) {
-                mDialog.dismiss();
-                ArrayList points = null;
-                PolylineOptions polylineOptions = null;
-
-
-                for (int i = 0; i < lists.size(); i++) {
-                    points = new ArrayList<>();
-                    polylineOptions = new PolylineOptions();
-
-                    List<HashMap<String, String>> path = lists.get(i);
-
-                    for (int j = 0; j < path.size(); j++) {
-                        HashMap< String, String> point = path.get(j);
-
-
-                        double lat = Double.parseDouble(point.get("lat"));
-                        double lng = Double.parseDouble(point.get("lng"));
-                        LatLng position = new LatLng(lat, lng);
-                        points.add(position);
-                    }
-
-
-
-                    polylineOptions.addAll(points);
-                    polylineOptions.width(16);
-                    polylineOptions.color(Color.CYAN);
-                    polylineOptions.geodesic(true);
-
-
-                    polylineOptions.color(ContextCompat.getColor(getApplicationContext(),R.color.colorPrimary));
-
-
-
-                }
-
-
-               direction= mMap.addPolyline(polylineOptions);
-            }
+            return routes;
         }
 
+        @Override
+        protected void onPostExecute(List<List<HashMap<String,String>>> lists) {
+            mDialog.dismiss();
+            ArrayList<LatLng> points = null;
+            PolylineOptions polylineOptions = null;
+
+
+            for (int i = 0; i < lists.size(); i++) {
+                points = new ArrayList<>();
+                polylineOptions = new PolylineOptions();
+
+                List<HashMap<String, String>> path = lists.get(i);
+
+                for (int j = 0; j < path.size(); j++) {
+                    HashMap< String, String> point = path.get(j);
+
+
+                    double lat = Double.parseDouble(point.get("lat"));
+                    double lng = Double.parseDouble(point.get("lng"));
+                    LatLng position = new LatLng(lat, lng);
+                    points.add(position);
+                }
+
+
+
+                polylineOptions.addAll(points);
+                polylineOptions.width(16);
+                polylineOptions.color(Color.CYAN);
+                polylineOptions.geodesic(true);
+
+
+                polylineOptions.color(ContextCompat.getColor(getApplicationContext(),R.color.colorPrimary));
+
+
+
+            }
+
+
+            direction= mMap.addPolyline(polylineOptions);
+        }
     }
 
+}

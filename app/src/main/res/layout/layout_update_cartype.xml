@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.v7.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:cardElevation="10dp">
+    <RadioGroup
+        android:orientation="vertical"
+        android:layout_margin="20dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+       <RadioButton
+           android:id="@+id/default_cartype"
+           android:text="@string/teksi"
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content" />
+
+        <RadioButton
+            android:id="@+id/teksi_cartype"
+            android:text="@string/car_default"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+
+    </RadioGroup>
+</android.support.v7.widget.CardView>

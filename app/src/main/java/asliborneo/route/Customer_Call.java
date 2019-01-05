@@ -1,50 +1,29 @@
 package asliborneo.route;
 
-import android.animation.ValueAnimator;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Intent;
-import android.graphics.Color;
 import android.media.MediaPlayer;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.view.animation.LinearInterpolator;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.google.android.gms.maps.CameraUpdate;
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.JointType;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.Polyline;
-import com.google.android.gms.maps.model.PolylineOptions;
-import com.google.android.gms.maps.model.SquareCap;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
+import asliborneo.route.Model.DataMessage;
 import asliborneo.route.Model.FCMResponse;
-import asliborneo.route.Model.Notification;
 import asliborneo.route.Model.Token;
-import asliborneo.route.Model.Sender;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-
-import static asliborneo.route.Commons.fcmURL;
 
 
 public class Customer_Call extends AppCompatActivity {
@@ -55,8 +34,8 @@ public class Customer_Call extends AppCompatActivity {
     FCMService mFCMService;
     IGoogleMAPApi mService;
 
-    String Customer_id;
-    double lat,lng;
+    String customer_id;
+    String lat,lng;
     private static final String TAG = "Customer_Call";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,8 +57,8 @@ public class Customer_Call extends AppCompatActivity {
         cancel_btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(!TextUtils.isEmpty(Customer_id)){
-                    cancel_booking(Customer_id);
+                if(!TextUtils.isEmpty(customer_id)){
+                    cancel_booking(customer_id);
                 }
             }
         });
@@ -89,7 +68,10 @@ public class Customer_Call extends AppCompatActivity {
                 Intent intent=new Intent(Customer_Call.this,DriverTracking.class);
                 intent.putExtra("lat",lat);
                 intent.putExtra("lng",lng);
-                intent.putExtra("customer",Customer_id);
+
+                intent.putExtra("customer",customer_id);
+
+
                 startActivity(intent);
                 finish();
             }
@@ -105,101 +87,117 @@ public class Customer_Call extends AppCompatActivity {
         if (getIntent() != null) {
 
 
-            lat = getIntent().getDoubleExtra("lat", -1.0);
-            lng = getIntent().getDoubleExtra("lng", -1.0);
-            Customer_id=getIntent().getStringExtra("customer");
+            lat = getIntent().getStringExtra("lat");
+            lng = getIntent().getStringExtra("lng");
+            customer_id=getIntent().getStringExtra("customer");
             getDirection(lat,lng);
         }
 
     }
 
-    private void getDirection(double lat, double lng)
-    {
+
+
+    private void getDirection(String lat, String lng) {
 
         String requestApi = null;
+        try {
 
-        requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
-                "mode=driving&" +
-                "transit_routing_preference=less_driving&" +
-                "origin=" + Commons.mLastLocation.getLatitude() + "," + Commons.mLastLocation.getLongitude() + "&" +
-                "destination=" +lat + ","+ lng + "&" +
-                "key=" + getResources().getString(R.string.google_direction_api);
-        Log.d("DIRECTION",requestApi);
+            requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
+                    "mode=driving&" +
+                    "transit_routing_preference=less_driving&" +
+                    "origin=" + Commons.mLastLocation.getLatitude() + "," + Commons.mLastLocation.getLongitude() + "&" +
+                    "destination=" + lat + "," + lng + "&" +
+                    "key=" + getResources().getString(R.string.google_direction_api);
+            Log.d("DIRECTION", requestApi);
 
-        mService.getPath(requestApi).enqueue(new Callback<String>() {
-            @Override
-            public void onResponse(Call<String> call, Response<String> response) {
-                if (response.body() != null) {
+            mService.getPath(requestApi).enqueue(new Callback<String>() {
+                @Override
+                public void onResponse(Call<String> call, Response<String> response) {
+                    if (response.body() != null) {
 
-                    try {
-                        JSONObject jsonObject = new JSONObject(response.body().toString());
-                        JSONArray routes = jsonObject.getJSONArray("routes");
+                        try {
+                            JSONObject jsonObject = new JSONObject(response.body().toString());
+                            JSONArray routes = jsonObject.getJSONArray("routes");
 
-                        JSONObject object = routes.getJSONObject(0);
+                            JSONObject object = routes.getJSONObject(0);
 
-                        JSONArray legs = object.getJSONArray("legs");
+                            JSONArray legs = object.getJSONArray("legs");
 
-                        JSONObject legsObject = legs.getJSONObject(0);
+                            JSONObject legsObject = legs.getJSONObject(0);
 
-                        JSONObject distance = legsObject.getJSONObject("distance");
-                        txtDistance.setText(distance.getString("text"));
+                            JSONObject distance = legsObject.getJSONObject("distance");
+                            txtDistance.setText(distance.getString("text"));
 
-                        JSONObject time = legsObject.getJSONObject("duration");
-                        txtTime.setText(time.getString("text"));
+                            JSONObject time = legsObject.getJSONObject("duration");
+                            txtTime.setText(time.getString("text"));
 
-                        String address = legsObject.getString("end_address");
-                        txtAddress.setText(address);
+                            String address = legsObject.getString("end_address");
+                            txtAddress.setText(address);
 
 
-                    } catch (JSONException e) {
-                        e.printStackTrace();
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
-            }
 
-            @Override
-            public void onFailure(Call<String> call, Throwable t) {
-            Toast.makeText(Customer_Call.this, ""+t.getMessage(),Toast.LENGTH_LONG).show();
-            }
-        });
+                @Override
+                public void onFailure(Call<String> call, Throwable t) {
+                    Toast.makeText(Customer_Call.this, "" + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
 
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
+
+
 
     private void cancel_booking(String customer_id) {
         Token token=new Token(customer_id);
-        Notification notification=new Notification("Notice!","Driver has canceled your Request");
-        Sender sender=new Sender(notification,token.getToken());
+//        Notification notification=new Notification(String.format("Cancel"),"Your request has been cancelled");
+//
+//        Sender sender=new Sender(notification,token.getToken());
+        Map<String,String> content = new HashMap<>();
+        content.put("title","Cancel");
+        content.put("message","Your request has been cancelled");
+        DataMessage dataMessage = new DataMessage(token.getToken(),content);
 
-        mFCMService.sendMessage(sender).
-        enqueue(new Callback<FCMResponse>() {
-            @Override
-            public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                if ( response.body().success == 1) {
-                    Toast.makeText(Customer_Call.this, "Cancelled", Toast.LENGTH_LONG).show();
-                    Intent intent = new Intent(Customer_Call.this,Driver_Home.class);
-                    startActivity(intent);
-                    finish();
-                }
-            }
 
-            @Override
-            public void onFailure(Call<FCMResponse> call, Throwable t) {
-                Log.e("fcm_err",t.getMessage());
-            }
-        });
+        mFCMService.sendMessage(dataMessage).
+                enqueue(new Callback<FCMResponse>() {
+                    @Override
+                    public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                        if ( response.body().success == 1) {
+                            Toast.makeText(Customer_Call.this, "Cancelled", Toast.LENGTH_LONG).show();
+
+
+                        }
+                        Intent intent =new Intent(Customer_Call.this,Driver_Home.class);
+                        startActivity(intent);
+                        finish();
+                    }
+
+                    @Override
+                    public void onFailure(Call<FCMResponse> call, Throwable t) {
+                        Log.e("fcm_err",t.getMessage());
+                    }
+                });
     }
-
-
 
     @Override
     protected void onStop() {
-        mediaPlayer.release();
+        if(mediaPlayer.isPlaying())
+            mediaPlayer.release();
         super.onStop();
     }
 
     @Override
     protected void onPause() {
-        mediaPlayer.release();
+        if (mediaPlayer.isPlaying())
+            mediaPlayer.pause();
         super.onPause();
     }
 
@@ -207,8 +205,8 @@ public class Customer_Call extends AppCompatActivity {
     protected void onResume()
     {
         super.onResume();
-        mediaPlayer.start();
+        if (mediaPlayer !=null && mediaPlayer.isPlaying())
+            mediaPlayer.start();
 
     }
-
 }

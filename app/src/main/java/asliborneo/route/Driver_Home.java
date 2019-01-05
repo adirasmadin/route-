@@ -1,5 +1,6 @@
 package asliborneo.route;
 
+import android.Manifest;
 import android.animation.ValueAnimator;
 import android.app.AlertDialog;
 import android.app.NotificationChannel;
@@ -15,12 +16,14 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -35,6 +38,7 @@ import android.view.View;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
+import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,7 +53,10 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.AutocompleteFilter;
 import com.google.android.gms.location.places.Place;
@@ -84,6 +91,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.firebase.iid.InstanceIdResult;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
@@ -103,6 +111,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import asliborneo.route.Model.RouteDriver;
 import asliborneo.route.Model.Token;
 import de.hdodenhof.circleimageview.CircleImageView;
 import dmax.dialog.SpotsDialog;
@@ -112,7 +121,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 
-public class Driver_Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,OnMapReadyCallback, com.google.android.gms.location.LocationListener,GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener {
+public class Driver_Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,OnMapReadyCallback {
 
 
     int PICK_IMAGE_REQUEST=9999;
@@ -153,6 +162,9 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     FirebaseStorage firebaseStorage;
     StorageReference storageReference;
     private static final String TAG = "Driver_Home";
+
+    FusedLocationProviderClient fusedLocationProviderClient;
+    LocationCallback locationCallback;
 
 
     Runnable drawPathRunnable = new Runnable() {
@@ -227,6 +239,8 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         toggle.syncState();
 
 
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
@@ -239,11 +253,11 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         CircleImageView avatar= navigation_header_view.findViewById(R.id.avatar);
         TextView name= navigation_header_view.findViewById(R.id.driver_name);
         TextView rating= navigation_header_view.findViewById(R.id.rating);
-        if (Commons.current_user !=null) {
-            rating.setText(Commons.current_user.getRates());
-            name.setText(Commons.current_user.getName());
-            if (!TextUtils.isEmpty(Commons.current_user.getAvatarurl())) {
-                Picasso.with(Driver_Home.this).load(Commons.current_user.getAvatarurl()).into(avatar);
+        if (Commons.current_routeDriver !=null) {
+            rating.setText(Commons.current_routeDriver.getRates());
+            name.setText(Commons.current_routeDriver.getName());
+            if (!TextUtils.isEmpty(Commons.current_routeDriver.getAvatarUrl())) {
+                Picasso.with(Driver_Home.this).load(Commons.current_routeDriver.getAvatarUrl()).into(avatar);
             }
         }
 
@@ -264,31 +278,33 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         }
         firebaseStorage=FirebaseStorage.getInstance();
         storageReference=firebaseStorage.getReference();
-     AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
-         @Override
-         public void onSuccess(Account account) {
-             onlineRef= FirebaseDatabase.getInstance().getReference().child(".info/connected");
-             currentUserRef=FirebaseDatabase.getInstance().getReference("Drivers").child(account.getId());
-             onlineRef.addValueEventListener(new ValueEventListener() {
-                 @Override
-                 public void onDataChange(DataSnapshot dataSnapshot) {
-                     currentUserRef.onDisconnect().removeValue();
-                 }
+        AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+            @Override
+            public void onSuccess(Account account) {
+                onlineRef= FirebaseDatabase.getInstance().getReference().child(".info/connected");
+                currentUserRef=FirebaseDatabase.getInstance().getReference("Drivers").child(account.getId());
+                onlineRef.addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        currentUserRef.onDisconnect().removeValue();
+                    }
 
-                 @Override
-                 public void onCancelled(DatabaseError databaseError) {
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
 
-                 }
-             });
-         }
+                    }
+                });
+            }
 
-         @Override
-         public void onError(AccountKitError accountKitError) {
+            @Override
+            public void onError(AccountKitError accountKitError) {
 
-         }
-     });
+            }
+        });
         places = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.placetxt);
+
+        places.setHint("Enter Your Location");
         location_switch = findViewById(R.id.location_switch);
         typefilter=new AutocompleteFilter.Builder()
                 .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
@@ -304,33 +320,47 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             }
         }
 
+        drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
+        geofire = new GeoFire(drivers);
+
         location_switch.setOnCheckedChangeListener(new MaterialAnimatedSwitch.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(boolean isOnline) {
                 if (isOnline) {
                     FirebaseDatabase.getInstance().goOnline();
-                    startLocationUpdates();
+                    buildLocationCallback();
+                    buildLocationRequest();
+                    mMap.setMyLocationEnabled(true);
+
+                    fusedLocationProviderClient.requestLocationUpdates(mLocationRequest,locationCallback,Looper.myLooper());
+
+                    drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
+                    geofire = new GeoFire(drivers);
                     displayLocation();
                     Snackbar.make(mapFragment.getView(), "You are Online", Snackbar.LENGTH_SHORT).show();
                 }else
                 {
-
-                    stopLocationUpdates();
                     FirebaseDatabase.getInstance().goOffline();
+                    mMap.clear();
+                    stopLocationUpdates();
+                    mMap.setMyLocationEnabled(false);
+
                     if(mCurrent!=null)
                         mCurrent.remove();
-                   mMap.clear();
-                    handler.removeCallbacks(drawPathRunnable);
-                  
+                    if (handler !=null)
+
+                        if (handler !=null)
+                            handler.removeCallbacks(drawPathRunnable);
+
                     Snackbar.make(mapFragment.getView(), "You are Offline", Snackbar.LENGTH_SHORT).show();
                 }
             }
         });
-        
+
         polyLineList = new ArrayList<>();
         drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
         geofire = new GeoFire(drivers);
-     
+
         places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
@@ -339,7 +369,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
                     destination=place.getAddress().toString();
                     destination=destination.replace(" ","+");
-                        mMap.addMarker(new MarkerOptions().position(place.getLatLng()).title("Search Users this area").icon(BitmapDescriptorFactory.fromResource(R.drawable.destination_marker)));
+                    mMap.addMarker(new MarkerOptions().position(place.getLatLng()).title("Search Users this area").icon(BitmapDescriptorFactory.fromResource(R.drawable.des)));
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 15.0f));
                     getDirection();
                 }else{
@@ -355,8 +385,16 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         });
         update_firebase_token();
         setupLocation();
-        
+
         mService = Commons.getGoogleService();
+    }
+
+    private void stopLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(Driver_Home.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        // locationManager.removeUpdates(this);
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
     }
 
 
@@ -391,8 +429,8 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
                     LatLngBounds.Builder builder=new LatLngBounds.Builder();
                     if(response.body() !=null )
-                    for(LatLng latLng:polyLineList)
-                        builder.include(latLng);
+                        for(LatLng latLng:polyLineList)
+                            builder.include(latLng);
                     LatLngBounds bounds=builder.build();
 
                     CameraUpdate mCameraUpdate = CameraUpdateFactory.newLatLngBounds(bounds,2);
@@ -416,7 +454,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     blackPolyline = mMap.addPolyline(blackPolylineOptions);
 
                     mMap.addMarker(new MarkerOptions().position(polyLineList.get(polyLineList.size()-1))
-                    .title("Pickup Location"));
+                            .title("Pickup Location"));
 
                     ValueAnimator polylineAnimator = ValueAnimator.ofInt(0,100);
                     polylineAnimator.setDuration(2000);
@@ -435,7 +473,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     });
                     polylineAnimator.start();
                     carMarker = mMap.addMarker(new MarkerOptions().position(currentPosition)
-                    .flat(true).icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
+                            .flat(true).icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
 
                     handler = new Handler();
                     index = -1;
@@ -503,142 +541,149 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         }
     }
     private void update_firebase_token() {
-       AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
-           @Override
-           public void onSuccess(Account account) {
-               FirebaseDatabase db=FirebaseDatabase.getInstance();
-               DatabaseReference tokens=db.getReference(Commons.tokenTable);
-               Token token=new Token(FirebaseInstanceId.getInstance().getToken());
-               tokens.child(account.getId()).setValue(token);
-           }
+        FirebaseDatabase db = FirebaseDatabase.getInstance();
+        final DatabaseReference tokens = db.getReference("Tokens");
 
-           @Override
-           public void onError(AccountKitError accountKitError) {
 
-           }
-       });
+        AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+            @Override
+            public void onSuccess(final Account account) {
+                FirebaseInstanceId.getInstance().getInstanceId().addOnSuccessListener(new OnSuccessListener<InstanceIdResult>() {
+                    @Override
+                    public void onSuccess(InstanceIdResult instanceIdResult) {
+                        Token token = new Token(instanceIdResult.getToken());
+                        tokens.child(account.getId())
+                                .setValue(token);
+                    }
+                }).addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Log.e("ERROR TOKEN", e.getMessage());
+                        Toast.makeText(Driver_Home.this,""+e.getMessage(),Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onError(AccountKitError accountKitError) {
+                Log.d("ERROR ACCOUNTKIT", accountKitError.getUserFacingMessage());
+            }
+        });
     }
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         switch (requestCode) {
             case MY_PERMISSION_REQUEST_CODE:
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    buildLocationCallback();
+                    buildLocationRequest();
+                    enableMyLocation();
                     if (location_switch.isChecked())
                         displayLocation();
                 }
         }
     }
     private void setupLocation() {
-        if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(Driver_Home.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(Driver_Home.this, new String[]{
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION
+                    Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION
             }, MY_PERMISSION_REQUEST_CODE);
 
         } else {
-            if (checkPlayServices()) {
-                buildGoogleApiClient();
-                createLocationRequest();
-                if (location_switch.isChecked())
-                    displayLocation();
-            }
-        }
-    }
-    private void stopLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        // locationManager.removeUpdates(this);
-        LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleapiclient,this);
-    }
-    private void displayLocation() {
-        if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        Commons.mLastLocation= LocationServices.FusedLocationApi.getLastLocation(mGoogleapiclient);
-        if (Commons.mLastLocation != null) {
+            buildLocationRequest();
+            buildLocationCallback();
+            enableMyLocation();
             if (location_switch.isChecked()) {
-                final double longitude = Commons.mLastLocation.getLongitude();
-                final double latitude = Commons.mLastLocation.getLatitude();
-                LatLng center=new LatLng(latitude,longitude);
-                LatLng northside= SphericalUtil.computeOffset(center,100000,0);
-                LatLng southside= SphericalUtil.computeOffset(center,100000,180);
-                LatLngBounds bounds=LatLngBounds.builder()
-                        .include(northside)
-                        .include(southside)
-                        .build();
-                places.setBoundsBias(bounds);
-                places.setFilter(typefilter);
+                drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location).child(Commons.current_routeDriver.getCarType());
+                geofire = new GeoFire(drivers);
 
-              AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
-                  @Override
-                  public void onSuccess(Account account) {
-                      geofire.setLocation(account.getId(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
-                          @Override
-                          public void onComplete(String key, DatabaseError error) {
-                              if (mCurrent != null) {
-                                  mCurrent.remove();
-                              }
-                              mCurrent=mMap.addMarker(new MarkerOptions().position(new LatLng(latitude, longitude)).title("You").icon(BitmapDescriptorFactory.fromResource(R.drawable.marker)));
-                              mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
-                              // rotate_marker(mcurrent, -360, mMap);*/
-                          }
-                      });
-                  }
-
-                  @Override
-                  public void onError(AccountKitError accountKitError) {
-
-                  }
-              });
+                displayLocation();
             }
         }
-        else
-        {
-            Log.d("ERROR","Cannot get your location");
-        }
+
     }
-    private void createLocationRequest(){
-        mLocationRequest=new LocationRequest();
+
+    private void buildLocationRequest() {
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(UPDATE_INTERVAL);
+        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         mLocationRequest.setSmallestDisplacement(DISPLACEMENT);
-        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
-        mLocationRequest.setInterval(UPDATE_INTERVAL);
 
     }
-    private void buildGoogleApiClient(){
-        mGoogleapiclient=new GoogleApiClient.Builder(Driver_Home.this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(LocationServices.API)
-                .build();
-        mGoogleapiclient.connect();
-    }
 
-
-    private boolean checkPlayServices()
-    {
-        int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
-        if (resultCode !=ConnectionResult.SUCCESS)
+    private void buildLocationCallback() {
+        locationCallback = new LocationCallback()
         {
-            if(GooglePlayServicesUtil.isUserRecoverableError(resultCode))
-                GooglePlayServicesUtil.getErrorDialog(resultCode,this,PLAY_SERVICES_RESOLUTION_REQUEST).show();
-
-            else
-            {
-                Toast.makeText(this, "This device is not supported", Toast.LENGTH_LONG).show();
-                finish();
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                super.onLocationResult(locationResult);
+                for (Location location:locationResult.getLocations())
+                {
+                    Commons.mLastLocation = location;
+                }
+                displayLocation();
             }
-            return false;
-        }
-        return true;
+        };
+
     }
-    private void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(Driver_Home.this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+
+
+    private void displayLocation() {
+        if (ActivityCompat.checkSelfPermission(Driver_Home.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleapiclient,mLocationRequest,this);
-        // locationManager.requestLocationUpdates(Provider,20000,0,this);
+        fusedLocationProviderClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if (Commons.mLastLocation != null) {
+                    if (location_switch.isChecked()) {
+                        final double longitude = Commons.mLastLocation.getLongitude();
+                        final double latitude = Commons.mLastLocation.getLatitude();
+                        LatLng center=new LatLng(latitude,longitude);
+                        LatLng northside= SphericalUtil.computeOffset(center,100000,0);
+                        LatLng southside= SphericalUtil.computeOffset(center,100000,180);
+                        LatLngBounds bounds=LatLngBounds.builder()
+                                .include(northside)
+                                .include(southside)
+                                .build();
+                        places.setBoundsBias(bounds);
+                        places.setFilter(typefilter);
+                        AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                            @Override
+                            public void onSuccess(Account account) {
+                                geofire.setLocation(account.getId(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
+                                    @Override
+                                    public void onComplete(String key, DatabaseError error) {
+                                        if (mCurrent != null) {
+                                            mCurrent.remove();
+                                        }
+
+                                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
+                                        // rotate_marker(mcurrent, -360, mMap);*/
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onError(AccountKitError accountKitError) {
+
+                            }
+                        });
+
+                    }
+                }
+                else
+                {
+                    Log.d("ERROR","Cannot get your location");
+                }
+            }
+        });
+
     }
+
+
+
     private void rotate_marker(final Marker mcurrent, final float i, GoogleMap mMap) {
         final Handler handler = new Handler();
         final long start = SystemClock.uptimeMillis();
@@ -657,7 +702,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             }
         });
     }
-  
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -668,30 +713,17 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 Toast.makeText(Driver_Home.this, "Error setting Map Style", Toast.LENGTH_LONG).show();
         }catch(Resources.NotFoundException ex){ex.printStackTrace();}
         mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-        mMap.setTrafficEnabled(false);
-        mMap.setBuildingsEnabled(false);
-        mMap.setIndoorEnabled(false);
+        mMap.setTrafficEnabled(true);
+        mMap.setBuildingsEnabled(true);
+        mMap.setIndoorEnabled(true);
         mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setZoomGesturesEnabled(true);
+        buildLocationRequest();
+        buildLocationCallback();
+
 
     }
-    @Override
-    public void onLocationChanged(Location location) {
-        Commons.mLastLocation =location;
-        displayLocation();
-    }
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-        displayLocation();
-        startLocationUpdates();
-    }
-    @Override
-    public void onConnectionSuspended(int i) {
-    mGoogleapiclient.connect();
-    }
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Log.e("location_error",connectionResult.getErrorMessage());
-    }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -721,19 +753,14 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
-        if (id == R.id.nav_Trip_history) {
+        if (id == R.id.nav_update_cartype) {
 
-        } else if (id == R.id.nav_way_bill) {
-
-        } else if (id == R.id.nav_help) {
-
-        } else if (id == R.id.nav_setting) {
+            showDialogCarTypeUpdate();
 
         } else if (id == R.id.nav_signout) {
             Sign_Out();
 
-        }else if(id== R.id.nav_change_password){
-            show_change_password_dialog();
+
         } else if (id==R.id.nav_update_profile) {
             show_update_profile_dialog();
         }
@@ -741,6 +768,103 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
+    }
+
+
+    private void enableMyLocation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission to access the location is missing.
+            PermissionUtils.requestPermission(Driver_Home.this, MY_PERMISSION_REQUEST_CODE,
+                    Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,true);
+        } else if (mMap != null) {
+            // Access to the location has been granted to the app.
+            mMap.setMyLocationEnabled(true);
+        }
+    }
+
+
+
+    private void showDialogCarTypeUpdate() {
+        final AlertDialog.Builder updateInfo=new AlertDialog.Builder(Driver_Home.this);
+        updateInfo.setTitle("Update Vehicle type");
+        updateInfo.setMessage("Please Fill all Information");
+        View carType=LayoutInflater.from(Driver_Home.this).inflate(R.layout.layout_update_cartype,null);
+
+        final RadioButton defaultCar= carType.findViewById(R.id.default_cartype);
+        final RadioButton teksiDriver= carType.findViewById(R.id.teksi_cartype);
+
+        if(Commons.current_routeDriver !=null)
+            if (Commons.current_routeDriver.getCarType().equals("CAR DEFAULT"))
+                defaultCar.setChecked(true);
+
+            else
+            if (Commons.current_routeDriver.getCarType().equals("TEKSI"))
+                teksiDriver.setChecked(true);
+
+
+        updateInfo.setView(carType);
+        updateInfo.setPositiveButton("Update", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+
+
+                AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                    @Override
+                    public void onSuccess(Account account) {
+                        Map<String,Object> updateInfo=new HashMap<>();
+                        if(teksiDriver.isChecked())
+                            updateInfo.put("carType", teksiDriver.getText().toString());
+
+                        if (defaultCar.isChecked())
+                            updateInfo.put("carType", defaultCar.getText().toString());
+
+                        DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference(Commons.Registered_driver);
+                        driver_information_reference.child(account.getId()).updateChildren(updateInfo).addOnCompleteListener(new OnCompleteListener<Void>() {
+                            @Override
+                            public void onComplete(@NonNull Task<Void> task) {
+                                if (task.isSuccessful()) {
+
+                                    Toast.makeText(Driver_Home.this,"Vehicle Updated!",Toast.LENGTH_LONG).show();
+                                }else{
+
+                                    Toast.makeText(Driver_Home.this,"Update Failed",Toast.LENGTH_LONG).show();
+
+                                }
+
+                            }
+                        });
+
+                        driver_information_reference.child(account.getId())
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                        Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                    }
+                                });
+                    }
+
+                    @Override
+                    public void onError(AccountKitError accountKitError) {
+
+                    }
+                });
+
+
+
+            }
+
+        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.dismiss();
+            }
+        }).show();
     }
 
     private void show_update_profile_dialog() {
@@ -765,33 +889,34 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 waiting_dialog.show();
 
                 if(!TextUtils.isEmpty(name.getText().toString())&&!TextUtils.isEmpty(phone.getText().toString())) {
+                    AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                        @Override
+                        public void onSuccess(Account account) {
+                            Map<String,Object> namephoneupdate=new HashMap<>();
 
-               AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
-                   @Override
-                   public void onSuccess(Account account) {
-                       Map<String,Object> namephoneupdate=new HashMap<>();
-                       namephoneupdate.put("name", name.getText().toString());
-                       namephoneupdate.put("phone", phone.getText().toString());
-                       DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
-                       driver_information_reference.child(account.getId()).updateChildren(namephoneupdate).addOnCompleteListener(new OnCompleteListener<Void>() {
-                           @Override
-                           public void onComplete(@NonNull Task<Void> task) {
-                               if (task.isSuccessful()) {
-                                   waiting_dialog.dismiss();
-                                   Toast.makeText(Driver_Home.this,"Name and Phone are updated",Toast.LENGTH_LONG).show();
-                               }else{
-                                   waiting_dialog.dismiss();
-                                   Toast.makeText(Driver_Home.this,"Update Failed",Toast.LENGTH_LONG).show();
-                               }
-                           }
-                       });
-                   }
+                            namephoneupdate.put("name", name.getText().toString());
+                            namephoneupdate.put("phone", phone.getText().toString());
 
-                   @Override
-                   public void onError(AccountKitError accountKitError) {
+                            DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference(Commons.Registered_driver);
+                            driver_information_reference.child(account.getId()).updateChildren(namephoneupdate).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Void> task) {
+                                    if (task.isSuccessful()) {
+                                        waiting_dialog.dismiss();
+                                        Toast.makeText(Driver_Home.this,"Name and Phone are updated",Toast.LENGTH_LONG).show();
+                                    }else{
+                                        waiting_dialog.dismiss();
+                                        Toast.makeText(Driver_Home.this,"Update Failed",Toast.LENGTH_LONG).show();
+                                    }
+                                }
+                            });
+                        }
 
-                   }
-               });
+                        @Override
+                        public void onError(AccountKitError accountKitError) {
+
+                        }
+                    });
                 }else{
                     Toast.makeText(Driver_Home.this,"Please Provide Required Information",Toast.LENGTH_LONG).show();
                 }
@@ -832,29 +957,29 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                         image_folder.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
                             @Override
                             public void onSuccess(final Uri uri) {
-                              AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
-                                  @Override
-                                  public void onSuccess(Account account) {
-                                      Map<String,Object> avatar_update=new HashMap<>();
-                                      avatar_update.put("avatarurl",uri.toString());
-                                      DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
-                                      driver_information_reference.child(account.getId()).updateChildren(avatar_update).addOnCompleteListener(new OnCompleteListener<Void>() {
-                                          @Override
-                                          public void onComplete(@NonNull Task<Void> task) {
-                                              if (task.isSuccessful()) {
-                                                  Toast.makeText(Driver_Home.this,"Uploaded!",Toast.LENGTH_LONG).show();
-                                              }else{
-                                                  Toast.makeText(Driver_Home.this,"Upload Failed",Toast.LENGTH_LONG).show();
-                                              }
-                                          }
-                                      });
-                                  }
+                                AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                                    @Override
+                                    public void onSuccess(Account account) {
+                                        Map<String,Object> avatar_update=new HashMap<>();
+                                        avatar_update.put("avatarUrl",uri.toString());
+                                        DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference(Commons.Registered_driver);
+                                        driver_information_reference.child(account.getId()).updateChildren(avatar_update).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                            @Override
+                                            public void onComplete(@NonNull Task<Void> task) {
+                                                if (task.isSuccessful()) {
+                                                    Toast.makeText(Driver_Home.this,"Uploaded!",Toast.LENGTH_LONG).show();
+                                                }else{
+                                                    Toast.makeText(Driver_Home.this,"Upload Failed",Toast.LENGTH_LONG).show();
+                                                }
+                                            }
+                                        });
+                                    }
 
-                                  @Override
-                                  public void onError(AccountKitError accountKitError) {
+                                    @Override
+                                    public void onError(AccountKitError accountKitError) {
 
-                                  }
-                              });
+                                    }
+                                });
                             }
                         });
                     }
@@ -874,96 +999,16 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         }
     }
 
-    private void show_change_password_dialog() {
-        AlertDialog.Builder change_password_dialog=new AlertDialog.Builder(Driver_Home.this);
-        change_password_dialog.setTitle("Change Password");
-        change_password_dialog.setMessage("Please fill all information");
-        View v=LayoutInflater.from(Driver_Home.this).inflate(R.layout.change_password_layout,null);
-        final MaterialEditText new_password= v.findViewById(R.id.new_password_txt);
-        final MaterialEditText old_password= v.findViewById(R.id.old_password_txt);
-        final MaterialEditText repeat_new_password= v.findViewById(R.id.repeat_new_password_txt);
-        change_password_dialog.setView(v);
-        change_password_dialog.setPositiveButton("Change Password", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                final AlertDialog waiting_dialog=new SpotsDialog(Driver_Home.this);
-                waiting_dialog.show();
-                if(new_password.getText().toString().equals(repeat_new_password.getText().toString())){
-                    String email=FirebaseAuth.getInstance().getCurrentUser().getEmail();
-                    AuthCredential credinal= EmailAuthProvider.getCredential(email,old_password.getText().toString());
-                    FirebaseAuth.getInstance().getCurrentUser().reauthenticate(credinal).addOnCompleteListener(new OnCompleteListener<Void>() {
-                        @Override
-                        public void onComplete(@NonNull Task<Void> task) {
-                            if(task.isSuccessful()){
-                                FirebaseAuth.getInstance().getCurrentUser().updatePassword(repeat_new_password.getText().toString()).addOnCompleteListener(new OnCompleteListener<Void>() {
-                                    @Override
-                                    public void onComplete(@NonNull Task<Void> task) {
-                                        if(task.isSuccessful()){
-                                           AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
-                                               @Override
-                                               public void onSuccess(Account account) {
-                                                   Map<String,Object> password=new HashMap<>();
-                                                   password.put("password",repeat_new_password.getText().toString());
-                                                   DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference("DriverInformation");
-                                                   driver_information_reference.child(account.getId()).updateChildren(password).addOnCompleteListener(new OnCompleteListener<Void>() {
-                                                       @Override
-                                                       public void onComplete(@NonNull Task<Void> task) {
-                                                           if (task.isSuccessful()){
-                                                               waiting_dialog.dismiss();
-                                                               Toast.makeText(Driver_Home.this,"Password has changed",Toast.LENGTH_LONG).show();
-                                                           }else{
-                                                               waiting_dialog.dismiss();
-                                                               Toast.makeText(Driver_Home.this,"Password was cchanged but not updated in Database",Toast.LENGTH_LONG).show();
-                                                           }
-                                                       }
-                                                   });
-                                               }
 
-                                               @Override
-                                               public void onError(AccountKitError accountKitError) {
-
-                                               }
-                                           });
-
-                                        }else{
-                                            waiting_dialog.dismiss();
-                                            Toast.makeText(Driver_Home.this,"Password has not Changed due to some Error",Toast.LENGTH_LONG).show();
-                                        }
-                                    }
-                                });
-                            }else{
-                                waiting_dialog.dismiss();
-                                Toast.makeText(Driver_Home.this,"Old Password is incorrect",Toast.LENGTH_LONG).show();
-                            }
-                        }
-                    }).addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-
-                        }
-                    });
-
-                }else{
-                    waiting_dialog.dismiss();
-                    Toast.makeText(Driver_Home.this,"Passwords do not match",Toast.LENGTH_LONG).show();
-
-                }
-            }
-        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                dialogInterface.dismiss();
-            }
-        }).show();
-    }
 
     private void Sign_Out() {
-        AlertDialog.Builder builder;
+
+        android.support.v7.app.AlertDialog.Builder builder;
         if (Build.VERSION.SDK_INT >=Build.VERSION_CODES.LOLLIPOP)
-            builder = new AlertDialog.Builder(this,android.R.style.Theme_Material_Dialog_Alert);
+            builder = new android.support.v7.app.AlertDialog.Builder(this,android.R.style.Theme_Material_Dialog_Alert);
 
         else
-            builder = new AlertDialog.Builder(this);
+            builder = new android.support.v7.app.AlertDialog.Builder(this);
 
         builder.setMessage("Are you sure ?")
                 .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
@@ -982,4 +1027,6 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         });
         builder.show();
     }
+
 }
+

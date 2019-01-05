@@ -75,7 +75,8 @@ import com.rengwuxian.materialedittext.MaterialEditText;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import asliborneo.route.Model.User;
+import asliborneo.route.Model.RouteDriver;
+
 
 import uk.co.chrisjenx.calligraphy.CalligraphyConfig;
 import uk.co.chrisjenx.calligraphy.CalligraphyContextWrapper;
@@ -108,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         db = FirebaseDatabase.getInstance();
         users = db.getReference(Commons.Registered_driver);
-        Commons.current_user = new User();
+        Commons.current_routeDriver = new RouteDriver();
 
         btnContinue = findViewById(R.id.btnContinue);
 
@@ -131,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
                             .addListenerForSingleValueEvent(new ValueEventListener() {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                    Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
                                     Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                     startActivity(homeIntent);
                                     finish();
@@ -191,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
                             .addListenerForSingleValueEvent(new ValueEventListener() {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                    Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
                                     Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                     startActivity(homeIntent);
                                     finish();
@@ -268,11 +269,12 @@ public class MainActivity extends AppCompatActivity {
                                             @Override
                                             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                                 if (!dataSnapshot.child(userPhone).exists()) {
-                                                    User user = new User();
+                                                    RouteDriver user = new RouteDriver();
                                                     user.setPhone(account.getPhoneNumber().toString());
                                                     user.setName(account.getPhoneNumber().toString());
-                                                    user.setAvatarurl("");
+                                                    user.setAvatarUrl("");
                                                     user.setRates("0.0");
+                                                    user.setCarType("TEKSI");
 
                                                     users.child(userPhone)
                                                             .setValue(user)
@@ -284,7 +286,7 @@ public class MainActivity extends AppCompatActivity {
                                                                             .addListenerForSingleValueEvent(new ValueEventListener() {
                                                                                 @Override
                                                                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                                                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                                                                    Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
                                                                                     Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                                                                     startActivity(homeIntent);
                                                                                     finish();
@@ -309,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
                                                             .addListenerForSingleValueEvent(new ValueEventListener() {
                                                                 @Override
                                                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                                                    Commons.current_user = dataSnapshot.getValue(User.class);
+                                                                    Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
                                                                     Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                                                     startActivity(homeIntent);
                                                                     finish();
@@ -354,11 +356,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 }
-
-
-
-
-
 
 
 
