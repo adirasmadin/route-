@@ -27,4 +27,11 @@
     <string name="start_trip">Start Trip</string>
     <string name="car_default">CAR DEFAULT</string>
     <string name="teksi">TEKSI</string>
+
+    <string name="sign_out">Sign Out</string>
+    <string name="hint_phone_number">Enter Phone Number</string>
+    <string name="hint_verification_code">Enter Membership pin</string>
+    <string name="start_phone_auth">Start</string>
+    <string name="verify_phone_auth">Verify</string>
+    <string name="resend_phone_auth">Resend</string>
 </resources>

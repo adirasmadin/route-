@@ -3,6 +3,7 @@ package asliborneo.route;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
@@ -27,12 +28,15 @@ import retrofit2.Response;
 
 
 public class Customer_Call extends AppCompatActivity {
-    TextView txtTime, txtDistance, txtAddress;
+    TextView txtTime, txtDistance, txtAddress,txtCountdown,txtTotal;
     Button cancel_btn,accept_btn;
     MediaPlayer mediaPlayer;
 
     FCMService mFCMService;
     IGoogleMAPApi mService;
+
+
+
 
     String customer_id;
     String lat,lng;
@@ -44,6 +48,10 @@ public class Customer_Call extends AppCompatActivity {
         txtTime = findViewById(R.id.txt_time);
         txtAddress = findViewById(R.id.txt_address);
         txtDistance = findViewById(R.id.txt_distance);
+        txtCountdown = findViewById(R.id.txt_countdown);
+
+
+
 
         mediaPlayer = MediaPlayer.create(this, R.raw.ringtone);
         mediaPlayer.setLooping(true);
@@ -96,65 +104,6 @@ public class Customer_Call extends AppCompatActivity {
     }
 
 
-
-    private void getDirection(String lat, String lng) {
-
-        String requestApi = null;
-        try {
-
-            requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
-                    "mode=driving&" +
-                    "transit_routing_preference=less_driving&" +
-                    "origin=" + Commons.mLastLocation.getLatitude() + "," + Commons.mLastLocation.getLongitude() + "&" +
-                    "destination=" + lat + "," + lng + "&" +
-                    "key=" + getResources().getString(R.string.google_direction_api);
-            Log.d("DIRECTION", requestApi);
-
-            mService.getPath(requestApi).enqueue(new Callback<String>() {
-                @Override
-                public void onResponse(Call<String> call, Response<String> response) {
-                    if (response.body() != null) {
-
-                        try {
-                            JSONObject jsonObject = new JSONObject(response.body().toString());
-                            JSONArray routes = jsonObject.getJSONArray("routes");
-
-                            JSONObject object = routes.getJSONObject(0);
-
-                            JSONArray legs = object.getJSONArray("legs");
-
-                            JSONObject legsObject = legs.getJSONObject(0);
-
-                            JSONObject distance = legsObject.getJSONObject("distance");
-                            txtDistance.setText(distance.getString("text"));
-
-                            JSONObject time = legsObject.getJSONObject("duration");
-                            txtTime.setText(time.getString("text"));
-
-                            String address = legsObject.getString("end_address");
-                            txtAddress.setText(address);
-
-
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-
-                @Override
-                public void onFailure(Call<String> call, Throwable t) {
-                    Toast.makeText(Customer_Call.this, "" + t.getMessage(), Toast.LENGTH_LONG).show();
-                }
-            });
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-
-
     private void cancel_booking(String customer_id) {
         Token token=new Token(customer_id);
 //        Notification notification=new Notification(String.format("Cancel"),"Your request has been cancelled");
@@ -186,6 +135,72 @@ public class Customer_Call extends AppCompatActivity {
                     }
                 });
     }
+    private void getDirection(String lat, String lng) {
+
+        String requestApi = null;
+        try {
+
+            requestApi = "https://maps.googleapis.com/maps/api/directions/json?" +
+                    "mode=driving&" +
+                    "transit_routing_preference=less_driving&" +
+                    "origin=" + Commons.mLastLocation.getLatitude() + "," + Commons.mLastLocation.getLongitude() + "&" +
+                    "destination=" + lat + "," + lng + "&" +
+                    "key=" + getResources().getString(R.string.google_direction_api);
+            Log.d("DIRECTION", requestApi);
+
+            mService.getPath(requestApi).enqueue(new Callback<String>() {
+                @Override
+                public void onResponse(Call<String> call, Response<String> response) {
+                    if (response.body() != null) {
+
+                        try {
+                            JSONObject jsonObject = new JSONObject(response.body().toString());
+                            JSONArray routes = jsonObject.getJSONArray("routes");
+
+                            JSONObject object = routes.getJSONObject(0);
+
+                            JSONArray legs = object.getJSONArray("legs");
+
+                            JSONObject legsObject = legs.getJSONObject(0);
+
+
+                            JSONObject distance = legsObject.getJSONObject("distance");
+                            txtDistance.setText(distance.getString("text"));
+
+                            JSONObject time = legsObject.getJSONObject("duration");
+                            txtTime.setText(time.getString("text"));
+
+                            String address = legsObject.getString("end_address");
+                            txtAddress.setText(address);
+
+
+
+
+
+
+
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<String> call, Throwable t) {
+                    Toast.makeText(Customer_Call.this, "" + t.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
 
     @Override
     protected void onStop() {

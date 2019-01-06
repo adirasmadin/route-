@@ -13,8 +13,8 @@ public class Commons {
     public static final String pickUpRequest_tbl="PickUpRequest";
     public static final String tokenTable ="Tokens";
     public static double base_fare=2.50;
-    private static double time_rate=0.25;
-    private static double distance_rate=0.50;
+    public static double time_rate=0.25;
+    public static double distance_rate=0.50;
     public static RouteDriver current_routeDriver =null;
     public static final String user_field="usr";
     public static final String password_field="pwd";

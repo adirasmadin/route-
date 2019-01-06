@@ -278,6 +278,26 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         }
         firebaseStorage=FirebaseStorage.getInstance();
         storageReference=firebaseStorage.getReference();
+
+        places = (PlaceAutocompleteFragment)
+                getFragmentManager().findFragmentById(R.id.placetxt);
+
+        places.setHint("Enter Your Location");
+        location_switch = findViewById(R.id.location_switch);
+        typefilter=new AutocompleteFilter.Builder()
+                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
+                .setTypeFilter(3)
+                .build();
+        drivers = FirebaseDatabase.getInstance().getReference("Drivers");
+
+
+        if (getIntent().getExtras() != null) {
+            for (String key : getIntent().getExtras().keySet()) {
+                Object value = getIntent().getExtras().get(key);
+                Log.d(TAG, "Key: " + key + " Value: " + value);
+            }
+        }
+
         AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
             @Override
             public void onSuccess(Account account) {
@@ -301,24 +321,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
             }
         });
-        places = (PlaceAutocompleteFragment)
-                getFragmentManager().findFragmentById(R.id.placetxt);
 
-        places.setHint("Enter Your Location");
-        location_switch = findViewById(R.id.location_switch);
-        typefilter=new AutocompleteFilter.Builder()
-                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
-                .setTypeFilter(3)
-                .build();
-        drivers = FirebaseDatabase.getInstance().getReference("Drivers");
-
-
-        if (getIntent().getExtras() != null) {
-            for (String key : getIntent().getExtras().keySet()) {
-                Object value = getIntent().getExtras().get(key);
-                Log.d(TAG, "Key: " + key + " Value: " + value);
-            }
-        }
 
         drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
         geofire = new GeoFire(drivers);
@@ -340,22 +343,23 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     Snackbar.make(mapFragment.getView(), "You are Online", Snackbar.LENGTH_SHORT).show();
                 }else
                 {
+                    if (!location_switch.isChecked())
                     FirebaseDatabase.getInstance().goOffline();
                     mMap.clear();
                     stopLocationUpdates();
                     mMap.setMyLocationEnabled(false);
 
-                    if(mCurrent!=null)
-                        mCurrent.remove();
+
                     if (handler !=null)
 
-                        if (handler !=null)
+
                             handler.removeCallbacks(drawPathRunnable);
 
                     Snackbar.make(mapFragment.getView(), "You are Offline", Snackbar.LENGTH_SHORT).show();
                 }
             }
         });
+
 
         polyLineList = new ArrayList<>();
         drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
@@ -388,6 +392,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
         mService = Commons.getGoogleService();
     }
+
 
     private void stopLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(Driver_Home.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

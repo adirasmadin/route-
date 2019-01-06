@@ -133,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                     Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
-                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                    Intent homeIntent = new Intent(MainActivity.this, RouteMembership.class);
                                     startActivity(homeIntent);
                                     finish();
                                 }
@@ -193,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                     Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
-                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                    Intent homeIntent = new Intent(MainActivity.this, RouteMembership.class);
                                     startActivity(homeIntent);
                                     finish();
                                 }
@@ -287,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
                                                                                 @Override
                                                                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                                                                     Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
-                                                                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
+                                                                                    Intent homeIntent = new Intent(MainActivity.this, RouteMembership.class);
                                                                                     startActivity(homeIntent);
                                                                                     finish();
                                                                                 }
@@ -346,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void goToMyLoggedInActivity() {
-        Intent intent = new Intent(MainActivity.this,Driver_Home.class);
+        Intent intent = new Intent(MainActivity.this,RouteMembership.class);
         startActivity(intent);
         finish();
 

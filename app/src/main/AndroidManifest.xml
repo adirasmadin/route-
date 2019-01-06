@@ -19,16 +19,18 @@
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
-        <meta-data android:name="com.facebook.accountkit.ApplicationName"
+
+        <meta-data
+            android:name="com.facebook.accountkit.ApplicationName"
             android:value="@string/app_name" />
-        <meta-data android:name="com.facebook.sdk.ApplicationId"
+        <meta-data
+            android:name="com.facebook.sdk.ApplicationId"
             android:value="@string/FACEBOOK_APP_ID" />
-        <meta-data android:name="com.facebook.accountkit.ClientToken"
+        <meta-data
+            android:name="com.facebook.accountkit.ClientToken"
             android:value="@string/ACCOUNT_KIT_CLIENT_TOKEN" />
 
-        <activity
-            android:name="com.facebook.accountkit.ui.AccountKitActivity"
-           />
+        <activity android:name="com.facebook.accountkit.ui.AccountKitActivity" />
         <activity
             android:name=".Splash"
             android:theme="@style/SplashTheme">
@@ -61,19 +63,19 @@
             android:name=".Trip_Detail"
             android:label="@string/title_activity_trip__detail" />
 
-        <service
-            android:name=".service.MyFirebaseMessagingService">
+        <service android:name=".service.MyFirebaseMessagingService">
             <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/avatar" />
-        <!-- Set color used with incoming notification messages. This is used when no color is set for the incoming
-             notification message. See README(https://goo.gl/6BKBk7) for more. -->
+        <!--
+             Set color used with incoming notification messages. This is used when no color is set for the incoming
+             notification message. See README(https://goo.gl/6BKBk7) for more.
+        -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/colorAccent" />
@@ -83,7 +85,8 @@
 
         <activity
             android:name=".Customer_Call"
-            android:label="@string/title_activity_customer__call"> </activity>
+            android:label="@string/title_activity_customer__call"></activity>
+        <activity android:name=".RouteMembership"></activity>
     </application>
 
 </manifest>
