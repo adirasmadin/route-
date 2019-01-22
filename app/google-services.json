@@ -15,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "447414213619-or08mj3o6kljjag3g12c1tidunofpk9c.apps.googleusercontent.com",
+          "client_id": "447414213619-ggt88kivofubc3kim9cp7jk46vi4ig5g.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "asliborneo.route",
-            "certificate_hash": "1d9a48947c6cf3268dce2f8d94f68fe320abd1ba"
+            "certificate_hash": "89e43f9ed44fcdb66f58eac33aefe535acd0beaa"
           }
         },
         {
@@ -28,6 +28,12 @@
         }
       ],
       "api_key": [
+        {
+          "current_key": "AIzaSyDJDVkOaSyuUaBFAp7OyZ5mnXJrEzEM55I"
+        },
+        {
+          "current_key": "AIzaSyCTSRlT0I7CbXYiNSumJiDv-uHDZkjF5Qs"
+        },
         {
           "current_key": "AIzaSyD_kyU9tY7U2piM5xGvk5x5YMYWWvp2oCo"
         }
@@ -59,11 +65,27 @@
       },
       "oauth_client": [
         {
-          "client_id": "447414213619-brn711n352a8c7sbcd8f7aeo7kairdl1.apps.googleusercontent.com",
+          "client_id": "447414213619-8nvqpsqgpoggh1nj1l3769ppj89pt4uj.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "asliborneo.router",
-            "certificate_hash": "1d9a48947c6cf3268dce2f8d94f68fe320abd1ba"
+            "certificate_hash": "89e43f9ed44fcdb66f58eac33aefe535acd0beaa"
+          }
+        },
+        {
+          "client_id": "447414213619-ao2a2vkvljl39or7qe9bpojc6lv1r6ud.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "asliborneo.router",
+            "certificate_hash": "aba2fa2a1e512c543d5fdfd581b160402572e9f0"
+          }
+        },
+        {
+          "client_id": "447414213619-kgknpf3f54st0i1slkpmheqv89ajlive.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "asliborneo.router",
+            "certificate_hash": "d4b7c6ca1125923f663313dcd939003813430911"
           }
         },
         {
@@ -72,6 +94,12 @@
         }
       ],
       "api_key": [
+        {
+          "current_key": "AIzaSyDJDVkOaSyuUaBFAp7OyZ5mnXJrEzEM55I"
+        },
+        {
+          "current_key": "AIzaSyCTSRlT0I7CbXYiNSumJiDv-uHDZkjF5Qs"
+        },
         {
           "current_key": "AIzaSyD_kyU9tY7U2piM5xGvk5x5YMYWWvp2oCo"
         }

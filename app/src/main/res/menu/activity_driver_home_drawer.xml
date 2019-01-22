@@ -7,7 +7,10 @@
 
         <item
             android:id="@+id/nav_update_cartype"
-            android:title="UPDATE VEHICLE TYPE"/>
+            android:title="Change Vehicle Type"/>
+        <item
+            android:id="@+id/nav_update_makepayment"
+            android:title="ROUTE PAYMENT"/>
 
         <item
             android:id="@+id/nav_update_profile"
@@ -15,7 +18,7 @@
 
         <item
             android:id="@+id/nav_signout"
-            android:title="Sign Out"/>
+            android:title="SIGN OUT"/>
 
     </group>
 

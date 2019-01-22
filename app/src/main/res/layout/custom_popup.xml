@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="350dp"
+    android:layout_height="600dp"
+    android:orientation="vertical"
+    android:padding="5dp"
+    android:background="@color/colorPrimaryDark"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_gravity="center">
+
+
+
+    <!--<TextView-->
+        <!--android:id="@+id/paypalpay"-->
+        <!--android:background="@drawable/circle_background"-->
+        <!--android:gravity="bottom"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:textColor="@android:color/white" />-->
+    <!--<LinearLayout-->
+        <!--android:layout_width="match_parent"-->
+        <!--android:layout_height="wrap_content"-->
+
+        <!--android:orientation="vertical">-->
+
+        <!--<TextView-->
+            <!--android:layout_width="wrap_content"-->
+            <!--android:layout_height="wrap_content"-->
+
+            <!--android:layout_gravity="center"-->
+            <!--android:text="ROUTE INSTANT PAY SERVICES"-->
+            <!--android:textColor="@android:color/white"-->
+            <!--android:textSize="20sp" />-->
+        <!--<TextView-->
+            <!--android:layout_width="wrap_content"-->
+            <!--android:layout_height="wrap_content"-->
+            <!--android:layout_marginTop="15dp"-->
+            <!--android:textSize="16sp"-->
+
+            <!--android:text="Online banking/credit card/debit card"-->
+            <!--android:textColor="@color/buttonPickupRequest"-->
+            <!--android:layout_gravity="center"/>-->
+        <!--<ImageView-->
+            <!--android:layout_width="80dp"-->
+            <!--android:layout_height="100dp"-->
+            <!--android:layout_gravity="center"-->
+            <!--android:layout_marginTop="20dp"-->
+            <!--android:layout_marginBottom="30dp"-->
+            <!--android:src="@drawable/ic_location_on" />-->
+
+    <!--</LinearLayout>-->
+
+    <RadioGroup
+        android:orientation="vertical"
+        android:layout_margin="20dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <RadioButton
+            android:id="@+id/cash"
+            android:text="Cash"
+            android:textColor="@color/white"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <RadioButton
+            android:id="@+id/default_cartype"
+            android:text="TOPUP E-WALLET (minimum RM10)"
+            android:textColor="@color/white"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <RadioButton
+            android:id="@+id/teksi_cartype"
+            android:textColor="@color/white"
+            android:text="MONTHLY SUBSCRIPTION (RM300)"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </RadioGroup>
+
+</LinearLayout>

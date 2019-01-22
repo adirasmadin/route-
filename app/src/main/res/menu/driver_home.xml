@@ -6,4 +6,18 @@
         android:orderInCategory="100"
         android:title="@string/action_settings"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/nav_update_cartype"
+        android:title="ROUTE PAYMENT"/>
+    <item
+        android:id="@+id/nav_update_makepayment"
+        android:title="ROUTE PAYMENT"/>
+
+    <item
+        android:id="@+id/nav_update_profile"
+        android:title="UPDATE PROFILE"/>
+
+    <item
+        android:id="@+id/nav_signout"
+        android:title="SIGN OUT"/>
 </menu>

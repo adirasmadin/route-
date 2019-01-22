@@ -1,6 +1,14 @@
 package asliborneo.route;
 
 import com.facebook.accountkit.internal.Utility;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.SignInButton;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.OptionalPendingResult;
 import com.google.i18n.phonenumbers.AlternateFormatsCountryCodeSet;
 import com.google.i18n.phonenumbers.MetadataLoader;
 import com.google.i18n.phonenumbers.NumberParseException;
@@ -38,6 +46,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.RelativeLayout;
@@ -75,6 +84,9 @@ import com.rengwuxian.materialedittext.MaterialEditText;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import asliborneo.route.Helpers.FirebaseHelper;
+import asliborneo.route.Messages.Errors;
+import asliborneo.route.Messages.Message;
 import asliborneo.route.Model.RouteDriver;
 
 
@@ -83,7 +95,7 @@ import uk.co.chrisjenx.calligraphy.CalligraphyContextWrapper;
 
 import static android.content.pm.PackageManager.*;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener  {
     private static final int REQUEST_CODE = 11;
     Button btnContinue;
     FirebaseAuth auth;
@@ -91,7 +103,13 @@ public class MainActivity extends AppCompatActivity {
     DatabaseReference users;
     MaterialEditText email, password, name, phone;
     RelativeLayout rootlayout;
+    private GoogleApiClient googleApiClient;
+    public static final int SIGN_IN_CODE_GOOGLE=157;
+    Button btnSignIn, btnLogIn;
+    TextView txtForgotPassword;
 
+    FirebaseHelper firebaseHelper;
+    GoogleSignInAccount account;
     static String extractNumer;
 
     TextView txt_forgot_password, txtRegister, txtSignin;
@@ -114,6 +132,35 @@ public class MainActivity extends AppCompatActivity {
         btnContinue = findViewById(R.id.btnContinue);
 
         PhoneNumberUtils.extractNetworkPortion(extractNumer);
+        firebaseHelper=new FirebaseHelper(this);
+        SignInButton signInButtonGoogle=findViewById(R.id.login_button_Google);
+        GoogleSignInOptions gso=new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
+        googleApiClient=new GoogleApiClient.Builder(this)
+                .enableAutoManage(this, this)
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+        signInButtonGoogle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent=Auth.GoogleSignInApi.getSignInIntent(googleApiClient);
+                startActivityForResult(intent, SIGN_IN_CODE_GOOGLE);
+            }
+        });
+
+//        btnSignIn=findViewById(R.id.btnContinue);
+//        btnLogIn=findViewById(R.id.btnRegister);
+        btnContinue.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                firebaseHelper.showRegistrerDialog();
+            }
+        });
+//        btnLogIn.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                firebaseHelper.showLoginDialog();
+//            }
+//        });
 
         printKeyHash();
         btnContinue.setOnClickListener(new View.OnClickListener() {
@@ -133,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                     Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
-                                    Intent homeIntent = new Intent(MainActivity.this, RouteMembership.class);
+                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                     startActivity(homeIntent);
                                     finish();
                                 }
@@ -153,6 +200,21 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
+    }
+    private void verifyGoogleAccount() {
+        OptionalPendingResult<GoogleSignInResult> opr= Auth.GoogleSignInApi.silentSignIn(googleApiClient);
+        if (opr.isDone()){
+            GoogleSignInResult result= opr.get();
+            if (result.isSuccess())
+                firebaseHelper.loginSuccess();
+
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        verifyGoogleAccount();
     }
 
     public void phoneLogin() {
@@ -193,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                     Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
-                                    Intent homeIntent = new Intent(MainActivity.this, RouteMembership.class);
+                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                     startActivity(homeIntent);
                                     finish();
                                 }
@@ -220,14 +282,17 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-
+        if (requestCode==SIGN_IN_CODE_GOOGLE) {//Google
+            GoogleSignInResult result=Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+            handleSignInResult(result);
+        }
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_CODE) { // confirm that this response matches your request
             AccountKitLoginResult loginResult = data.getParcelableExtra(AccountKitLoginResult.RESULT_KEY);
             String toastMessage;
             if (loginResult.getError() != null) {
                 toastMessage = loginResult.getError().getErrorType().getMessage();
-                showErrorActivity(loginResult.getError());
+
             } else if (loginResult.wasCancelled()) {
                 toastMessage = "Login Cancelled";
             } else {
@@ -274,7 +339,10 @@ public class MainActivity extends AppCompatActivity {
                                                     user.setName(account.getPhoneNumber().toString());
                                                     user.setAvatarUrl("");
                                                     user.setRates("0.0");
-                                                    user.setCarType("TEKSI");
+                                                    user.setCarType("Economy");
+                                                    user.setGender("Male");
+                                                    user.setMakePayment("Cash");
+                                                    user.setPassword(null);
 
                                                     users.child(userPhone)
                                                             .setValue(user)
@@ -287,7 +355,7 @@ public class MainActivity extends AppCompatActivity {
                                                                                 @Override
                                                                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                                                                     Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
-                                                                                    Intent homeIntent = new Intent(MainActivity.this, RouteMembership.class);
+                                                                                    Intent homeIntent = new Intent(MainActivity.this, Driver_Home.class);
                                                                                     startActivity(homeIntent);
                                                                                     finish();
                                                                                 }
@@ -346,17 +414,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void goToMyLoggedInActivity() {
-        Intent intent = new Intent(MainActivity.this,RouteMembership.class);
+        Intent intent = new Intent(MainActivity.this,Driver_Home.class);
         startActivity(intent);
-        finish();
+
 
     }
 
-    private void showErrorActivity(AccountKitError error) {
+    private void handleSignInResult(GoogleSignInResult result) {
+        if (result.isSuccess()){
+            account = result.getSignInAccount();
+            firebaseHelper.registerByGoogleAccount(account);
+        }else{
+            Message.messageError(this, Errors.ERROR_LOGIN_GOOGLE);
+        }
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Message.messageError(this, Errors.ERROR_LOGIN_GOOGLE);
+    }
+
+    @Override
+    public void onPointerCaptureChanged(boolean hasCapture) {
 
     }
+
+
+
 }
-
-
-
-

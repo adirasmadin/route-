@@ -30,7 +30,9 @@ public class Trip_Detail extends FragmentActivity implements OnMapReadyCallback 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-        base_fare= findViewById(R.id.base_fare);
+
+
+
         estimated_payout= findViewById(R.id.estimated_payout);
         txt_from= findViewById(R.id.txt_from);
         txt_date= findViewById(R.id.txt_date);
@@ -38,6 +40,8 @@ public class Trip_Detail extends FragmentActivity implements OnMapReadyCallback 
         txt_fee= findViewById(R.id.txt_fee);
         txt_time= findViewById(R.id.txt_time);
         txt_distance= findViewById(R.id.txt_distance);
+        base_fare = findViewById(R.id.base_fare);
+
     }
 
 
@@ -60,7 +64,9 @@ public class Trip_Detail extends FragmentActivity implements OnMapReadyCallback 
             String Date=String.format("%s,  %d,%d",convert_to_days_of_week(calendar.get(Calendar.DAY_OF_WEEK)),calendar.get(Calendar.DAY_OF_MONTH),calendar.get(Calendar.YEAR));
             txt_date.setText(Date);
             txt_fee.setText(String.format("RM %.2f",getIntent().getDoubleExtra("total",0.0)));
+
             base_fare.setText(String.valueOf(Commons.base_fare));
+
             estimated_payout.setText(String.format("RM %.2f",getIntent().getDoubleExtra("total",0.0)));
             txt_time.setText(String.format("%s min",getIntent().getStringExtra("time")));
             txt_distance.setText(String.format("%s km",getIntent().getStringExtra("distance")));

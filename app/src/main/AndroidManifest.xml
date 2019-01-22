@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL " />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
 
     <application
         android:allowBackup="true"
@@ -19,7 +20,9 @@
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
-
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-1735533551147084~9666438974" />
         <meta-data
             android:name="com.facebook.accountkit.ApplicationName"
             android:value="@string/app_name" />
@@ -53,6 +56,9 @@
             android:theme="@style/AppTheme.NoActionBar" />
 
         <meta-data
+            android:name="com.google.android.gms.wallet.api.enabled"
+            android:value="true" />
+        <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/google_maps_key" />
 
@@ -85,8 +91,10 @@
 
         <activity
             android:name=".Customer_Call"
-            android:label="@string/title_activity_customer__call"></activity>
-        <activity android:name=".RouteMembership"></activity>
+            android:label="@string/title_activity_customer__call" />
+        <activity android:name=".RouteMembership" />
+        <activity android:name=".PayServices.CheckoutActivity" />
+        <activity android:name=".UrgentCall"></activity>
     </application>
 
 </manifest>

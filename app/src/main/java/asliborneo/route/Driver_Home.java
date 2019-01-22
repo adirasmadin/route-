@@ -49,9 +49,15 @@ import com.facebook.accountkit.AccountKitError;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.github.glomadrian.materialanimatedswitch.MaterialAnimatedSwitch;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.OptionalPendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -99,7 +105,7 @@ import com.google.firebase.storage.UploadTask;
 import com.google.maps.android.SphericalUtil;
 import com.rengwuxian.materialedittext.MaterialEditText;
 import com.squareup.picasso.Picasso;
-
+import asliborneo.route.Interfaces.locationListener;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -111,6 +117,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import asliborneo.route.Messages.Errors;
+import asliborneo.route.Messages.Message;
 import asliborneo.route.Model.RouteDriver;
 import asliborneo.route.Model.Token;
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -129,14 +137,14 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     private static final int MY_PERMISSION_REQUEST_CODE = 7000;
     private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 1000;
     private LocationRequest mLocationRequest;
-    private GoogleApiClient mGoogleapiclient;
-
+    private GoogleApiClient mGoogleApiClient;
+    Location location=null;
     private static int UPDATE_INTERVAL = 5000;
     private static int FASTEST_INTERVAL = 3000;
     private static int DISPLACEMENT = 10;
 
     DatabaseReference drivers;
-    GeoFire geofire;
+    GoogleSignInAccount account;
     Marker mCurrent;
     MaterialAnimatedSwitch location_switch;
     SupportMapFragment mapFragment;
@@ -162,7 +170,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     FirebaseStorage firebaseStorage;
     StorageReference storageReference;
     private static final String TAG = "Driver_Home";
-
+    GeoFire geoFire;
     FusedLocationProviderClient fusedLocationProviderClient;
     LocationCallback locationCallback;
 
@@ -238,7 +246,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         drawer.addDrawerListener(toggle);
         toggle.syncState();
 
-
+        verifyGoogleAccount();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
         NavigationView navigationView = findViewById(R.id.nav_view);
@@ -260,6 +268,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 Picasso.with(Driver_Home.this).load(Commons.current_routeDriver.getAvatarUrl()).into(avatar);
             }
         }
+
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Create channel to show notifications.
@@ -323,8 +332,6 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         });
 
 
-        drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
-        geofire = new GeoFire(drivers);
 
         location_switch.setOnCheckedChangeListener(new MaterialAnimatedSwitch.OnCheckedChangeListener() {
             @Override
@@ -336,15 +343,14 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     mMap.setMyLocationEnabled(true);
 
                     fusedLocationProviderClient.requestLocationUpdates(mLocationRequest,locationCallback,Looper.myLooper());
+                    geoFire = new GeoFire(drivers);
 
-                    drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
-                    geofire = new GeoFire(drivers);
                     displayLocation();
                     Snackbar.make(mapFragment.getView(), "You are Online", Snackbar.LENGTH_SHORT).show();
                 }else
                 {
                     if (!location_switch.isChecked())
-                    FirebaseDatabase.getInstance().goOffline();
+                        FirebaseDatabase.getInstance().goOffline();
                     mMap.clear();
                     stopLocationUpdates();
                     mMap.setMyLocationEnabled(false);
@@ -353,7 +359,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     if (handler !=null)
 
 
-                            handler.removeCallbacks(drawPathRunnable);
+                        handler.removeCallbacks(drawPathRunnable);
 
                     Snackbar.make(mapFragment.getView(), "You are Offline", Snackbar.LENGTH_SHORT).show();
                 }
@@ -362,8 +368,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
 
         polyLineList = new ArrayList<>();
-        drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location);
-        geofire = new GeoFire(drivers);
+
 
         places.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
@@ -377,7 +382,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 15.0f));
                     getDirection();
                 }else{
-                    Toast.makeText(Driver_Home.this,"Please Change your status to Online",Toast.LENGTH_LONG).show();
+                    Message.messageError(getApplicationContext(), Errors.WITHOUT_LOCATION);
                 }
 
             }
@@ -391,6 +396,84 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         setupLocation();
 
         mService = Commons.getGoogleService();
+    }
+
+
+    private void loadUser(){
+        FirebaseDatabase.getInstance().getReference(Commons.Registered_driver)
+                .child(Commons.userID)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        Commons.current_routeDriver=dataSnapshot.getValue(RouteDriver.class);
+
+                        loadDriverInformation();
+                        onlineRef=FirebaseDatabase.getInstance().getReference().child(".info/connected");
+                        currentUserRef=FirebaseDatabase.getInstance().getReference(Commons.driver_location).child(Commons.current_routeDriver.getCarType())
+                                .child(Commons.userID);
+                        onlineRef.addValueEventListener(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                currentUserRef.onDisconnect().removeValue();
+                            }
+
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                    }
+                });
+    }
+
+    private void loadDriverInformation(){
+        FirebaseDatabase.getInstance().getReference(Commons.Registered_driver)
+                .child(Commons.userID)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+                        Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
+    }
+
+    private void verifyGoogleAccount() {
+        GoogleSignInOptions gso=new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
+        mGoogleApiClient=new GoogleApiClient.Builder(this)
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+        OptionalPendingResult<GoogleSignInResult> opr=Auth.GoogleSignInApi.silentSignIn(mGoogleApiClient);
+        if (opr.isDone()){
+            GoogleSignInResult result= opr.get();
+            handleSignInResult(result);
+        }else {
+            opr.setResultCallback(new ResultCallback<GoogleSignInResult>() {
+                @Override
+                public void onResult(@NonNull GoogleSignInResult googleSignInResult) {
+                    handleSignInResult(googleSignInResult);
+                }
+            });
+        }
+    }
+    private void handleSignInResult(GoogleSignInResult result) {
+        if (result.isSuccess()) {
+            account = result.getSignInAccount();
+            Commons.userID=account.getId();
+            loadUser();
+        }else{
+            Commons.userID=FirebaseAuth.getInstance().getCurrentUser().getUid();
+            loadUser();
+        }
     }
 
 
@@ -571,7 +654,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
             @Override
             public void onError(AccountKitError accountKitError) {
-                Log.d("ERROR ACCOUNTKIT", accountKitError.getUserFacingMessage());
+                Log.d("ERROR ACCOUNTKIT",""+ accountKitError.getUserFacingMessage());
             }
         });
     }
@@ -599,8 +682,8 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
             buildLocationCallback();
             enableMyLocation();
             if (location_switch.isChecked()) {
-                drivers = FirebaseDatabase.getInstance().getReference(Commons.driver_location).child(Commons.current_routeDriver.getCarType());
-                geofire = new GeoFire(drivers);
+                drivers= FirebaseDatabase.getInstance().getReference(Commons.Registered_driver).child(Commons.driver_location).child(Commons.current_routeDriver.getCarType());
+                geoFire=new GeoFire(drivers);
 
                 displayLocation();
             }
@@ -645,10 +728,10 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                     if (location_switch.isChecked()) {
                         final double longitude = Commons.mLastLocation.getLongitude();
                         final double latitude = Commons.mLastLocation.getLatitude();
-                        LatLng center=new LatLng(latitude,longitude);
-                        LatLng northside= SphericalUtil.computeOffset(center,100000,0);
-                        LatLng southside= SphericalUtil.computeOffset(center,100000,180);
-                        LatLngBounds bounds=LatLngBounds.builder()
+                        LatLng center = new LatLng(latitude, longitude);
+                        LatLng northside = SphericalUtil.computeOffset(center, 100000, 0);
+                        LatLng southside = SphericalUtil.computeOffset(center, 100000, 180);
+                        LatLngBounds bounds = LatLngBounds.builder()
                                 .include(northside)
                                 .include(southside)
                                 .build();
@@ -657,14 +740,15 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                         AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
                             @Override
                             public void onSuccess(Account account) {
-                                geofire.setLocation(account.getId(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
+                                geoFire.setLocation(account.getId(), new GeoLocation(latitude, longitude), new GeoFire.CompletionListener() {
                                     @Override
                                     public void onComplete(String key, DatabaseError error) {
                                         if (mCurrent != null) {
                                             mCurrent.remove();
                                         }
-
-                                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude,longitude),15.0f));
+                                        LatLng currentLocation = new LatLng(latitude, longitude);
+                                        mCurrent = mMap.addMarker(new MarkerOptions().position(currentLocation));
+                                      mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
                                         // rotate_marker(mcurrent, -360, mMap);*/
                                     }
                                 });
@@ -677,19 +761,16 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                         });
 
                     }
-                }
-                else
-                {
-                    Log.d("ERROR","Cannot get your location");
+                } else {
+                    Log.d("ERROR", "Cannot get your location");
                 }
             }
         });
-
     }
 
 
 
-    private void rotate_marker(final Marker mcurrent, final float i, GoogleMap mMap) {
+        private void rotate_marker(final Marker mcurrent, final float i, GoogleMap mMap) {
         final Handler handler = new Handler();
         final long start = SystemClock.uptimeMillis();
         final float start_rotation = mcurrent.getRotation();
@@ -721,7 +802,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         mMap.setTrafficEnabled(true);
         mMap.setBuildingsEnabled(true);
         mMap.setIndoorEnabled(true);
-        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setZoomControlsEnabled(false);
         mMap.getUiSettings().setZoomGesturesEnabled(true);
         buildLocationRequest();
         buildLocationCallback();
@@ -760,7 +841,7 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
 
         if (id == R.id.nav_update_cartype) {
 
-            showDialogCarTypeUpdate();
+            showDialogUpdateCarType();
 
         } else if (id == R.id.nav_signout) {
             Sign_Out();
@@ -769,7 +850,9 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
         } else if (id==R.id.nav_update_profile) {
             show_update_profile_dialog();
         }
-
+        else if (id==R.id.nav_update_makepayment) {
+            showMakePayment();
+        }
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
@@ -789,62 +872,54 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     }
 
 
-
-    private void showDialogCarTypeUpdate() {
-        final AlertDialog.Builder updateInfo=new AlertDialog.Builder(Driver_Home.this);
-        updateInfo.setTitle("Update Vehicle type");
-        updateInfo.setMessage("Please Fill all Information");
-        View carType=LayoutInflater.from(Driver_Home.this).inflate(R.layout.layout_update_cartype,null);
-
-        final RadioButton defaultCar= carType.findViewById(R.id.default_cartype);
-        final RadioButton teksiDriver= carType.findViewById(R.id.teksi_cartype);
-
-        if(Commons.current_routeDriver !=null)
-            if (Commons.current_routeDriver.getCarType().equals("CAR DEFAULT"))
-                defaultCar.setChecked(true);
-
-            else
-            if (Commons.current_routeDriver.getCarType().equals("TEKSI"))
-                teksiDriver.setChecked(true);
-
-
-        updateInfo.setView(carType);
-        updateInfo.setPositiveButton("Update", new DialogInterface.OnClickListener() {
+    private void showMakePayment() {
+        android.support.v7.app.AlertDialog.Builder alertDialog = new android.support.v7.app.AlertDialog.Builder(Driver_Home.this);
+        alertDialog.setTitle("UPDATE VEHICLE TYPE");
+        LayoutInflater inflater = this.getLayoutInflater();
+        View carType = inflater.inflate(R.layout.custom_popup, null);
+        final RadioButton rbUberX=carType.findViewById(R.id.default_cartype);
+        final RadioButton rbUberBlack=carType.findViewById(R.id.teksi_cartype);
+        final RadioButton cash=carType.findViewById(R.id.cash);
+        if (geoFire !=null)
+            if(Commons.current_routeDriver.getMakePayment().equals("TOPUP E-WALLET (minimum RM10)"))
+                rbUberX.setChecked(true);
+            else if(Commons.current_routeDriver.getMakePayment().equals("MONTHLY SUBSCRIPTION (RM300)"))
+                rbUberBlack.setChecked(true);
+            else if(Commons.current_routeDriver.getMakePayment().equals("MONTHLY SUBSCRIPTION (RM300)"))
+                cash.setChecked(true);
+        alertDialog.setView(carType);
+        alertDialog.setPositiveButton("UPDATE", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
-
 
                 AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
                     @Override
                     public void onSuccess(Account account) {
-                        Map<String,Object> updateInfo=new HashMap<>();
-                        if(teksiDriver.isChecked())
-                            updateInfo.put("carType", teksiDriver.getText().toString());
+                        Map<String, Object> updateInfo=new HashMap<>();
+                        if(rbUberX.isChecked())
+                            updateInfo.put("makePayment", rbUberX.getText().toString());
+                        else if(rbUberBlack.isChecked())
+                            updateInfo.put("makePayment", rbUberBlack.getText().toString());
 
-                        if (defaultCar.isChecked())
-                            updateInfo.put("carType", defaultCar.getText().toString());
+                        DatabaseReference driverInformation = FirebaseDatabase.getInstance().getReference(Commons.Registered_driver);
+                        driverInformation.child(account.getId())
+                                .updateChildren(updateInfo)
+                                .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                    @Override
+                                    public void onComplete(@NonNull Task<Void> task) {
 
-                        DatabaseReference driver_information_reference=FirebaseDatabase.getInstance().getReference(Commons.Registered_driver);
-                        driver_information_reference.child(account.getId()).updateChildren(updateInfo).addOnCompleteListener(new OnCompleteListener<Void>() {
-                            @Override
-                            public void onComplete(@NonNull Task<Void> task) {
-                                if (task.isSuccessful()) {
+                                        if(task.isSuccessful())
+                                            Toast.makeText(Driver_Home.this,"Payment success!",Toast.LENGTH_SHORT).show();
+                                        else
+                                            Toast.makeText(Driver_Home.this,"Payment failed!",Toast.LENGTH_SHORT).show();
 
-                                    Toast.makeText(Driver_Home.this,"Vehicle Updated!",Toast.LENGTH_LONG).show();
-                                }else{
-
-                                    Toast.makeText(Driver_Home.this,"Update Failed",Toast.LENGTH_LONG).show();
-
-                                }
-
-                            }
-                        });
-
-                        driver_information_reference.child(account.getId())
+                                    }
+                                });
+                        driverInformation.child(account.getId())
                                 .addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
                                     public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                                        Commons.current_routeDriver = dataSnapshot.getValue(RouteDriver.class);
+                                        Commons.current_routeDriver=dataSnapshot.getValue(RouteDriver.class);
                                     }
 
                                     @Override
@@ -861,15 +936,89 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
                 });
 
 
-
             }
-
-        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+        });
+        alertDialog.setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 dialogInterface.dismiss();
             }
-        }).show();
+        });
+        alertDialog.show();
+    }
+
+
+    private void showDialogUpdateCarType() {
+        android.support.v7.app.AlertDialog.Builder alertDialog = new android.support.v7.app.AlertDialog.Builder(Driver_Home.this);
+        alertDialog.setTitle("UPDATE VEHICLE TYPE");
+        LayoutInflater inflater = this.getLayoutInflater();
+        View carType = inflater.inflate(R.layout.layout_update_cartype, null);
+        final RadioButton rbUberX=carType.findViewById(R.id.economy);
+        final RadioButton rbUberBlack=carType.findViewById(R.id.luxury);
+        if (geoFire !=null)
+        if(Commons.current_routeDriver.getCarType().equals("Economy"))
+            rbUberX.setChecked(true);
+        else if(Commons.current_routeDriver.getCarType().equals("Luxury"))
+            rbUberBlack.setChecked(true);
+
+        alertDialog.setView(carType);
+        alertDialog.setPositiveButton("UPDATE", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+
+            AccountKit.getCurrentAccount(new AccountKitCallback<Account>() {
+                @Override
+                public void onSuccess(Account account) {
+                    Map<String, Object> updateInfo=new HashMap<>();
+                    if(rbUberX.isChecked())
+                        updateInfo.put("carType", rbUberX.getText().toString());
+                    else if(rbUberBlack.isChecked())
+                        updateInfo.put("carType", rbUberBlack.getText().toString());
+
+                    DatabaseReference driverInformation = FirebaseDatabase.getInstance().getReference(Commons.Registered_driver);
+                    driverInformation.child(account.getId())
+                            .updateChildren(updateInfo)
+                            .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Void> task) {
+
+                                    if(task.isSuccessful())
+                                        Toast.makeText(Driver_Home.this,"Information Updated!",Toast.LENGTH_SHORT).show();
+                                    else
+                                        Toast.makeText(Driver_Home.this,"Information Update Failed!",Toast.LENGTH_SHORT).show();
+
+                                }
+                            });
+                    driverInformation.child(account.getId())
+                            .addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                    Commons.current_routeDriver=dataSnapshot.getValue(RouteDriver.class);
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                }
+                            });
+                }
+
+                @Override
+                public void onError(AccountKitError accountKitError) {
+
+                }
+            });
+
+
+            }
+        });
+        alertDialog.setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                dialogInterface.dismiss();
+            }
+        });
+        alertDialog.show();
     }
 
     private void show_update_profile_dialog() {
@@ -1034,4 +1183,3 @@ public class Driver_Home extends AppCompatActivity implements NavigationView.OnN
     }
 
 }
-

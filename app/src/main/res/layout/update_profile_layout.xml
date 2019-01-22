@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.v7.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="350dp"
+    android:layout_height="600dp"
+    android:orientation="vertical"
+    android:padding="5dp"
+    android:background="@color/bluelight"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    app:cardElevation="10dp">
+    android:layout_gravity="center">
     <LinearLayout
         android:orientation="vertical"
         android:layout_margin="20dp"
@@ -17,12 +21,12 @@
             android:inputType="text"
             android:id="@+id/nametxt"
             android:textSize="20sp"
-            android:textColorHint="@color/buttonPickupRequest"
-            android:textColor="@android:color/black"
+            android:textColorHint="@color/grey_300"
+            android:textColor="@android:color/white"
             app:met_singleLineEllipsis="true"
-            app:met_baseColor="@color/colorPrimary"
+            app:met_baseColor="@android:color/white"
             app:met_floatingLabel="highlight"
-            app:met_primaryColor="@color/colorPrimary"
+            app:met_primaryColor="@android:color/white"
             />
         <com.rengwuxian.materialedittext.MaterialEditText
             android:layout_width="match_parent"
@@ -31,12 +35,12 @@
             android:inputType="phone"
             android:id="@+id/phonetxt"
             android:textSize="20sp"
-            android:textColorHint="@color/buttonPickupRequest"
-            android:textColor="@android:color/black"
+            android:textColorHint="@color/grey_300"
+            android:textColor="@android:color/white"
             app:met_singleLineEllipsis="true"
-            app:met_baseColor="@color/colorPrimary"
+            app:met_baseColor="@android:color/white"
             app:met_floatingLabel="highlight"
-            app:met_primaryColor="@color/colorPrimary"
+            app:met_primaryColor="@android:color/white"
             />
         <ImageView
             android:layout_width="wrap_content"
@@ -46,4 +50,4 @@
             android:src="@drawable/ic_add_circle_black_24dp"
             />
     </LinearLayout>
-</android.support.v7.widget.CardView>
+</LinearLayout>

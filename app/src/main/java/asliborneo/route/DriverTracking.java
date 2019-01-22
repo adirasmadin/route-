@@ -291,8 +291,9 @@ public class DriverTracking extends FragmentActivity implements OnMapReadyCallba
                         intent.putExtra("start_address", legsObject.getString("start_address"));
                         intent.putExtra("end_address", legsObject.getString("end_address"));
                         intent.putExtra("time", String.valueOf(time_value));
+                        intent.putExtra("total",String.valueOf(Commons.price_formula(distance_value,time_value,100)));
                         intent.putExtra("distance", String.valueOf(distance_value));
-                        intent.putExtra("total", Commons.price_formula(distance_value, time_value));
+                        intent.putExtra("total", Commons.price_formula(distance_value, time_value,0.2));
                         intent.putExtra("location_start", String.format("%f,%f", pickupLocation.getLatitude(), pickupLocation.getLongitude()));
                         intent.putExtra("location_end", String.format("%f,%f", Commons.mLastLocation.getLatitude(),Commons.mLastLocation.getLongitude()));
 

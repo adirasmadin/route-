@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">ROUTE</string>
-    <string name="default_notification_channel_id">asliborneo.router</string>
+    <string name="default_notification_channel_id">asliborneo.route</string>
     <string name="map_server_api">AIzaSyBIg2_GQgBqWRbCTMoCPEpd8FbxeVA6OeQ</string>
     <string name="title_activity_driver__home">Navigation Home</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
@@ -22,11 +22,18 @@
     <string name="msg_token_fmt">token</string>
     <string name="Cancel">Cancel</string>
     <string name="Accept">Accept</string>
+    <string name="driver_name">Driver Name :</string>
+    <string name="phone">Phone :</string>
+    <string name="rate">Rate :</string>
+    <string name="btn_request_pickup">SEND REQUEST PICKUP</string>
+    <string name="btn_call_driver">CALL DRIVER</string>
+    <string name="btn_cancel">Cancel</string>
     <string name="FACEBOOK_APP_ID">1232083650264469</string>
     <string name="ACCOUNT_KIT_CLIENT_TOKEN">ca82e10846c4721f4c4bbac3e75e6a48</string>
     <string name="start_trip">Start Trip</string>
     <string name="car_default">CAR DEFAULT</string>
     <string name="teksi">TEKSI</string>
+
 
     <string name="sign_out">Sign Out</string>
     <string name="hint_phone_number">Enter Phone Number</string>
@@ -34,4 +41,37 @@
     <string name="start_phone_auth">Start</string>
     <string name="verify_phone_auth">Verify</string>
     <string name="resend_phone_auth">Resend</string>
+    <string name="banner_ad_unit_id">ca-app-pub-1735533551147084/8624039796</string>
+    <string name="news_detail_top">ca-app-pub-1735533551147084/8624039796</string>
+    <string name="news_detail_bottom">ca-app-pub-1735533551147084/8624039796</string>
+    <string name="all_news">ca-app-pub-1735533551147084/8624039796</string>
+    //pay services
+    <string name="googlepay_button_content_description" translatable="false">Google Pay</string>
+    <string name="buy_with_googlepay_button_content_description" translatable="false">Buy with Google Pay</string>
+    <string name="save_to_googlepay_button_content_description" translatable="false">Save to Google Pay</string>
+    <string name="add_to_googlepay_button_content_description" translatable="false">Add to Google Pay</string>
+
+    <string name="store_name" translatable="false">My Online Store</string>
+    <string name="googlepay_status_unavailable" translatable="false">Unfortunately, Google Pay is not available on this phone.</string>
+    <string name="googlepay_status_checking" translatable="false">Checking if Google Pay is available...</string>
+    <string name="payments_show_name" translatable="false">Successfully received payment data for %s!</string>
+    <string name="login">Login</string>
+    <string name="fill_fields">Please fill Informations</string>
+    <string name="permission_denied">permission denied</string>
+    <string name="permission_denied_location">location denied</string>
+    <string name="cancelled">cancelled</string>
+    <string name="coulcd_not_login">failed to login</string>
+    <string name="device_not_supported">device is not supported</string>
+    <string name="cannot_get_location">can\'t get your location</string>
+    <string name="enter_email">enter email</string>
+    <string name="enter_password">enter password</string>
+    <string name="password_short">password too short</string>
+    <string name="failed">failed</string>
+    <string name="cancel">cancel</string>
+    <string name="signin">signin</string>
+    <string name="register">register</string>
+    <string name="enter_name">enter name</string>
+    <string name="enter_phone">enter phone</string>
+    <string name="registered">successfully registered</string>
+    <string name="could_not_login">could not login</string>
 </resources>

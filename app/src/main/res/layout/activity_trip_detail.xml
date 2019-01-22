@@ -31,14 +31,14 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/txt_date"
                 android:text="Friday 24 November 2017"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:id="@+id/txt_fee"
                 android:text="RM30"
-                android:textSize="50sp"
+                android:textSize="40sp"
                 android:layout_gravity="center_horizontal"
                 android:textColor="#27aa0b"
                 android:textStyle="bold"
@@ -51,13 +51,17 @@
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             >
+
             <TextView
+                android:id="@+id/base_fare"
+
+
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="20sp"
-                android:text="Trip Earning"
-                android:id="@+id/trip_earning"
                 />
+
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -68,16 +72,16 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
-                    android:text="Base Fare"
+                    android:textSize="20sp"
+                    android:text="Route Fees"
                     />
                 <TextView
-                    android:id="@+id/base_fare"
+                    android:id="@+id/routefees"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
-                    android:text="RM30.0"
+                    android:textSize="20sp"
+
                     />
             </LinearLayout>
             <LinearLayout
@@ -90,7 +94,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
+                    android:textSize="20sp"
                     android:text="Time"
                     />
                 <TextView
@@ -98,7 +102,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
+                    android:textSize="20sp"
                     android:text="3 min"
                     />
             </LinearLayout>
@@ -112,7 +116,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
+                    android:textSize="20sp"
                     android:text="Distance"
                     />
                 <TextView
@@ -120,7 +124,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
+                    android:textSize="20sp"
                     android:text="10 km"
                     />
             </LinearLayout>
@@ -135,7 +139,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="24sp"
+                    android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/black"
                     android:text="Estimated Payout"
@@ -148,9 +152,11 @@
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/black"
-                    android:text="$10.0"
+                    android:text="RM10.0"
                     />
             </LinearLayout>
+
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
