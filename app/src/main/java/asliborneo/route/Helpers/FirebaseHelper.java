@@ -50,13 +50,13 @@ public class FirebaseHelper {
     }
 
     public void registerByGoogleAccount(final GoogleSignInAccount account){
-        final RouteDriver user=new RouteDriver();
+        Commons.current_routeDriver =new RouteDriver();
         users.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 RouteDriver post = dataSnapshot.child(account.getId()).getValue(RouteDriver.class);
 
-                if(post==null) showRegisterPhone(user, account);
+                if(post==null) showRegisterPhone(Commons.current_routeDriver, account);
                 else loginSuccess();
             }
 

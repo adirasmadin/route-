@@ -341,7 +341,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.O
                                                     user.setRates("0.0");
                                                     user.setCarType("Economy");
                                                     user.setGender("Male");
-                                                    user.setMakePayment("Cash");
+                                                    user.setMakePayment("None");
                                                     user.setPassword(null);
 
                                                     users.child(userPhone)
